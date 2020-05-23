@@ -1,0 +1,65 @@
+{
+  "name": "composite-http-server",
+  "version": "0.1.0",
+  "description": "Helps you to compose a single http server program from multiple constituent server programs (http or not).",
+  "engines": {
+    "node": ">=12"
+  },
+  "main": "dist/index.js",
+  "typings": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "!dist/delete_me",
+    "src"
+  ],
+  "scripts": {
+    "_build": "tsdx --target node --format cjs --entry src/index.ts --entry src/proxy.ts",
+    "build": "yarn _build build && shx rm -rf dist/delete_me",
+    "build-watch": "yarn _build watch",
+    "_test": "tsdx test --runInBand",
+    "test": "yarn _test --ci",
+    "test-watch": "yarn _test --watch",
+    "lint": "tsdx lint",
+    "lint-fix": "tsdx lint --fix",
+    "prepublishOnly": "yarn build && yarn test"
+  },
+  "dependencies": {
+    "connect": "^3.7.0",
+    "http-proxy-middleware": "^1.0.4",
+    "map-stream": "0.0.7",
+    "merge-stream": "^2.0.0",
+    "split": "^1.0.1",
+    "tcp-port-used": "^1.0.1",
+    "tree-kill": "^1.2.2"
+  },
+  "devDependencies": {
+    "@types/connect": "^3.4.33",
+    "@types/merge-stream": "^1.1.2",
+    "@types/split": "^1.0.0",
+    "@types/tcp-port-used": "^1.0.0",
+    "isomorphic-unfetch": "^3.0.0",
+    "shx": "^0.3.2",
+    "tsdx": "^0.13.2",
+    "tslib": "^2.0.0",
+    "typescript": "^3.9.3"
+  },
+  "license": "MIT",
+  "author": {
+    "name": "Matthew Francis Brunetti",
+    "email": "zenflow87@gmail.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zenflow/composite-http-server.git"
+  },
+  "bugs": {
+    "url": "https://github.com/zenflow/composite-http-server/issues"
+  },
+  "homepage": "https://github.com/zenflow/composite-http-server#readme",
+  "prettier": {
+    "printWidth": 80,
+    "semi": false,
+    "singleQuote": true,
+    "trailingComma": "es5"
+  }
+}
