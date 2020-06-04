@@ -1,6 +1,6 @@
 {
   "name": "composite-http-server",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Helps you to compose a single http server program from multiple constituent server programs (http or not).",
   "engines": {
     "node": ">=12"
