@@ -130,3 +130,10 @@ composite-http-server to build everything into a single http server program runn
     - maybe: number of processes to start (requires configuring more port numbers & doing round-robin in proxy)
 - `config.server[].dependencies`: array of labels of servers to wait for to be ready before starting this server
 - use same node binary that main process was started with
+
+## Changelog
+
+- `v1.1.0`
+    - Shutdown gracefully in non-windows environments (bce5500c99c6eec2acd7262ae70a4e6cb52b9d1c)
+- `v1.0.0`
+    - Initial commit
