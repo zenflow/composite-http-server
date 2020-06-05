@@ -19,7 +19,7 @@ const basicConfig = (): CompositeServerConfig => ({
     {
       label: 'default',
       env: { RESPONSE_TEXT: 'default' },
-      command: `node test/fixtures/constituent-server.js`,
+      command: 'node test/fixtures/constituent-server.js',
       port: 3002,
       httpProxyPaths: ['/'],
     },

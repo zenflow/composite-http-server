@@ -22,7 +22,7 @@ describe('basic configs', () => {
         {
           label: 'only',
           env: { RESPONSE_TEXT: 'only' },
-          command: `node test/fixtures/constituent-server.js`,
+          command: 'node test/fixtures/constituent-server.js',
           port: 3001,
           httpProxyPaths: ['/'],
         },

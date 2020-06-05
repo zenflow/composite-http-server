@@ -4,17 +4,13 @@ import { once } from 'events'
 import mergeStream from 'merge-stream'
 import splitStream from 'split'
 import { mapStream } from './mapStream'
-import { killProcessTree } from './killProcessTree'
 
 export function createProcess(command: string | Array<string>, env: object) {
-  const proc = Array.isArray(command)
-    ? spawn(command[0], command.slice(1), {
-        env: { ...process.env, ...env },
-      })
-    : spawn(command, {
-        shell: true,
-        env: { ...process.env, ...env },
-      })
+  // TODO: allow spaces in arguments of single-string commands
+  const [cmd, ...args] = Array.isArray(command)
+    ? command
+    : command.split(/\s+/).filter(Boolean)
+  const proc = spawn(cmd, args, { env: { ...process.env, ...env } })
   const outputStream = (mergeStream(
     proc.stdout
       .setEncoding('utf8')
@@ -29,17 +25,11 @@ export function createProcess(command: string | Array<string>, env: object) {
   const exited = once(outputStream, 'end').then(() => {
     didExit = true
   })
-  let killPromise: Promise<void> | null = null
   function kill(): Promise<void> {
-    if (!killPromise) {
-      killPromise = Promise.resolve().then(async () => {
-        if (!didExit) {
-          await killProcessTree(proc.pid)
-        }
-        await exited
-      })
+    if (!didExit) {
+      proc.kill('SIGINT')
     }
-    return killPromise
+    return exited
   }
   return { outputStream, exited, kill }
 }

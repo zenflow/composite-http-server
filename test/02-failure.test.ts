@@ -21,7 +21,7 @@ const failureConfig = (
     {
       label: 'default',
       env: basicEnv,
-      command: `node test/fixtures/constituent-server.js`,
+      command: 'node test/fixtures/constituent-server.js',
       port: 3002,
       httpProxyPaths: ['/'],
     },

@@ -6,7 +6,6 @@ import mergeStream from 'merge-stream'
 import splitStream from 'split'
 // @ts-ignore
 import { CompositeServerConfig } from '../..'
-import { killProcessTree } from '../../src/helpers/killProcessTree'
 
 export interface CompositeServerProcess {
   output: string[]
@@ -38,30 +37,18 @@ export function getCompositeServerProcess(
   const output: string[] = []
   outputStream.on('data', line => output.push(line))
   let didExit = false
-  const exited: Promise<any> = once(outputStream, 'end').then(() => {
+  const exited: Promise<void> = once(outputStream, 'end').then(() => {
     didExit = true
   })
-  let killedPromise: Promise<void> | null = null
   const kill = function killChildProcess(): Promise<void> {
-    if (!killedPromise) {
-      killedPromise = Promise.resolve().then(async () => {
-        if (!didExit) {
-          if (process.platform === 'win32') {
-            await killProcessTree(proc.pid)
-          } else {
-            proc.kill('SIGINT')
-          }
-        }
-        await exited
-      })
+    if (!didExit) {
+      proc.kill('SIGINT')
     }
-    return killedPromise
+    return exited
   }
   const ready: Promise<void> = new Promise(resolve =>
     outputStream.on('data', line => {
-      if (line === 'Ready') {
-        resolve()
-      }
+      if (line === 'Ready') resolve()
     })
   )
   return { output, ready, kill, exited }
