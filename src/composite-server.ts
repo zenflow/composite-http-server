@@ -11,24 +11,23 @@ import {
   createServerProcess,
 } from './server-process'
 
-const output = mergeStream()
-output.pipe(process.stdout)
-
-const logger = new Logger()
-output.add(logger)
-
 let started = false
-let exiting = false
-const serverProcesses: ServerProcess[] = []
-
 export function startCompositeServer(config: CompositeServerConfig): void {
   assert(!started, 'Cannot start group server more than once')
   started = true
 
-  const normalizedConfig = validateAndNormalizeConfig(config)
   if (config.printConfig) {
-    logger.log(`config = ${JSON.stringify(normalizedConfig, null, 2)}`)
+    console.log(`config = ${JSON.stringify(config, null, 2)}`)
   }
+  const normalizedConfig = validateAndNormalizeConfig(config)
+
+  const output = mergeStream()
+  output.pipe(process.stdout)
+  const logger = new Logger()
+  output.add(logger)
+
+  const serverProcesses: ServerProcess[] = []
+  let exiting = false
 
   const proxyLabel = '$proxy'
   const maxLabelLength = Math.max(
@@ -49,26 +48,28 @@ export function startCompositeServer(config: CompositeServerConfig): void {
     return proc
   }
 
+  function exit(message: string) {
+    if (exiting) return
+    exiting = true
+    logger.log(message)
+    logger.log('Stopping servers...')
+    Promise.all(serverProcesses.map(({ kill }) => kill()))
+      .then(() => logger.log('Stopped servers'))
+      .catch(error =>
+        logger.log(
+          `Error stopping servers: ${
+            error instanceof Error ? error.stack : error
+          }`
+        )
+      )
+      .then(() => process.exit(1))
+  }
+  process.on('SIGINT', () => exit('Received SIGINT signal'))
+  process.on('SIGTERM', () => exit('Received SIGTERM signal'))
+
   doAsyncStartup(normalizedConfig, getServerProcess)
     .then(() => logger.log('Ready'))
     .catch(error => exit(`${error instanceof Error ? error.stack : error}`))
-}
-
-function exit(message: string) {
-  if (exiting) return
-  exiting = true
-  logger.log(message)
-  logger.log('Stopping servers...')
-  Promise.all(serverProcesses.map(({ kill }) => kill()))
-    .then(() => logger.log('Stopped servers'))
-    .catch(error =>
-      logger.log(
-        `Error stopping servers: ${
-          error instanceof Error ? error.stack : error
-        }`
-      )
-    )
-    .then(() => process.exit(1))
 }
 
 async function doAsyncStartup(
@@ -89,6 +90,3 @@ async function doAsyncStartup(
   })
   await proxyProcess.ready
 }
-
-process.on('SIGINT', () => exit('Received SIGINT signal'))
-process.on('SIGTERM', () => exit('Received SIGTERM signal'))
