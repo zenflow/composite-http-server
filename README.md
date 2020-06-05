@@ -133,6 +133,9 @@ composite-http-server to build everything into a single http server program runn
 
 ## Changelog
 
+- `v2.0.0`
+    - Run server procs w/o shell & kill server procs normally (w/o tree-kill) (32723c73467522551bc57da8575f57f59d04d11d)
+    - Ensure importing module is free of side-effects (efeab195b234cac153b601dd1e0835cbd53bcf2d)
 - `v1.1.0`
     - Shutdown gracefully in non-windows environments (bce5500c99c6eec2acd7262ae70a4e6cb52b9d1c)
 - `v1.0.0`
