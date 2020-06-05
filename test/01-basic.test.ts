@@ -74,7 +74,25 @@ describe('basic', () => {
     await proc.kill()
 
     const finalOutput = proc.output.splice(0)
-    expect(finalOutput[0]).toBe('')
-    expect(finalOutput[1]).toBe('')
+    if (process.platform === 'win32') {
+      expect(finalOutput[0]).toBe('')
+      expect(finalOutput[1]).toBe('')
+      expect(finalOutput[2]).toBeUndefined()
+    } else {
+      expect(finalOutput[0]).toBe('Received SIGINT signal')
+      expect(finalOutput[1]).toBe('Stopping servers...')
+      expect(finalOutput.slice(2, 8).sort()).toStrictEqual([
+        '$proxy  | [ERR] ',
+        '$proxy  | [out] ',
+        'default | [ERR] ',
+        'default | [out] ',
+        'other   | [ERR] ',
+        'other   | [out] ',
+      ])
+      expect(finalOutput[8]).toBe('Stopped servers')
+      expect(finalOutput[9]).toBe('')
+      expect(finalOutput[10]).toBe('')
+      expect(finalOutput[11]).toBeUndefined()
+    }
   })
 })

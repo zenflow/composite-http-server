@@ -11,13 +11,24 @@ import {
   createServerProcess,
 } from './server-process'
 
-let started: boolean = false
+const output = mergeStream()
+output.pipe(process.stdout)
+
+const logger = new Logger()
+output.add(logger)
+
+let started = false
+let exiting = false
+const serverProcesses: ServerProcess[] = []
 
 export function startCompositeServer(config: CompositeServerConfig): void {
   assert(!started, 'Cannot start group server more than once')
   started = true
 
   const normalizedConfig = validateAndNormalizeConfig(config)
+  if (config.printConfig) {
+    logger.log(`config = ${JSON.stringify(normalizedConfig, null, 2)}`)
+  }
 
   const proxyLabel = '$proxy'
   const maxLabelLength = Math.max(
@@ -25,17 +36,8 @@ export function startCompositeServer(config: CompositeServerConfig): void {
     ...normalizedConfig.servers.map(({ label }) => label.length)
   )
 
-  const output = mergeStream()
-  output.pipe(process.stdout)
-
-  const logger = new Logger()
-  output.add(logger)
-  if (config.printConfig) {
-    logger.log(`config = ${JSON.stringify(normalizedConfig, null, 2)}`)
-  }
-
-  const serverProcesses: ServerProcess[] = []
   function getServerProcess(config: ServerProcessConfig): ServerProcess {
+    // TODO: await forever if exiting
     const proc = createServerProcess(logger, config)
     serverProcesses.push(proc)
     output.add(
@@ -47,27 +49,26 @@ export function startCompositeServer(config: CompositeServerConfig): void {
     return proc
   }
 
-  let exiting = false
-  function exit(message: string) {
-    if (exiting) return
-    exiting = true
-    logger.log(message)
-    logger.log('Stopping servers...')
-    Promise.all(serverProcesses.map(({ kill }) => kill()))
-      .then(() => logger.log('Stopped servers'))
-      .catch(error =>
-        logger.log(
-          `Error stopping servers: ${
-            error instanceof Error ? error.stack : error
-          }`
-        )
-      )
-      .then(() => process.exit(1))
-  }
-
   doAsyncStartup(normalizedConfig, getServerProcess)
     .then(() => logger.log('Ready'))
     .catch(error => exit(`${error instanceof Error ? error.stack : error}`))
+}
+
+function exit(message: string) {
+  if (exiting) return
+  exiting = true
+  logger.log(message)
+  logger.log('Stopping servers...')
+  Promise.all(serverProcesses.map(({ kill }) => kill()))
+    .then(() => logger.log('Stopped servers'))
+    .catch(error =>
+      logger.log(
+        `Error stopping servers: ${
+          error instanceof Error ? error.stack : error
+        }`
+      )
+    )
+    .then(() => process.exit(1))
 }
 
 async function doAsyncStartup(
@@ -88,3 +89,6 @@ async function doAsyncStartup(
   })
   await proxyProcess.ready
 }
+
+process.on('SIGINT', () => exit('Received SIGINT signal'))
+process.on('SIGTERM', () => exit('Received SIGTERM signal'))

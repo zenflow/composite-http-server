@@ -46,7 +46,11 @@ export function getCompositeServerProcess(
     if (!killedPromise) {
       killedPromise = Promise.resolve().then(async () => {
         if (!didExit) {
-          await killProcessTree(proc.pid)
+          if (process.platform === 'win32') {
+            await killProcessTree(proc.pid)
+          } else {
+            proc.kill('SIGINT')
+          }
         }
         await exited
       })
