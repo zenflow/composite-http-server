@@ -5,7 +5,7 @@ import {
   normalizeCompositeServiceConfig,
   NormalizedCompositeServiceConfig,
 } from './config'
-import { assert, Logger, mapStream, rightPad } from './util'
+import { assert, mapStream, rightPad } from './util'
 import { ComposedService } from './ComposedService'
 
 let started = false
@@ -16,8 +16,7 @@ export function startCompositeService(config: CompositeServiceConfig) {
 }
 
 class CompositeService {
-  private logger = new Logger()
-  private output = mergeStream(this.logger)
+  private output = mergeStream()
   private config: NormalizedCompositeServiceConfig
   private services: ComposedService[]
   private serviceMap: Map<string, ComposedService>
@@ -60,9 +59,9 @@ class CompositeService {
       ...Object.keys(this.config.services).map(({ length }) => length)
     )
 
-    this.logger.log('Starting all services...')
+    console.log('Starting all services...')
     Promise.all(this.services.map(service => this.startService(service)))
-      .then(() => this.logger.log('Started all services'))
+      .then(() => console.log('Started all services'))
       .catch(error => this.die(errorText(error)))
   }
 
@@ -74,9 +73,9 @@ class CompositeService {
     )
     if (this.stopping) return
     await service.start((startPromise, process) => {
-      this.logger.log(`Starting service '${service.id}'...`)
+      console.log(`Starting service '${service.id}'...`)
       startPromise.then(() => {
-        this.logger.log(`Started service '${service.id}'`)
+        console.log(`Started service '${service.id}'`)
       })
       this.output.add(
         process.output.pipe(
@@ -96,11 +95,11 @@ class CompositeService {
       return
     }
     this.stopping = true
-    this.logger.log(message)
-    this.logger.log('Stopping all services...')
-    // TODO: individually .catch(error => { this.logger.log(`Error stopping service '${service.id}': ${errorText(error)}`) })
+    console.log(message)
+    console.log('Stopping all services...')
+    // TODO: individually .catch(error => { console.log(`Error stopping service '${service.id}': ${errorText(error)}`) })
     Promise.all(this.services.map(service => this.stopService(service)))
-      .then(() => this.logger.log('Stopped all services'))
+      .then(() => console.log('Stopped all services'))
       // Wait one tick for output to flush
       .then(() => process.exit(1))
   }
@@ -112,9 +111,9 @@ class CompositeService {
       )
     )
     await service.stop(stopPromise => {
-      this.logger.log(`Stopping service '${service.id}'...`)
+      console.log(`Stopping service '${service.id}'...`)
       stopPromise.then(() => {
-        this.logger.log(`Stopped service '${service.id}'`)
+        console.log(`Stopped service '${service.id}'`)
       })
     })
   }
