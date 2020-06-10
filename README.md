@@ -7,10 +7,10 @@ Define your composite service in a script like this one...
 ```js
 // composite.js
 
-const { findPorts, startCompositeService, oncePortUsed } = require('composite-service')
+const { startCompositeService, oncePortUsed } = require('composite-service')
 
 const { PORT } = process.env
-const [apiPort, webPort] = findPorts(2, { exclude: PORT })
+const [apiPort, webPort] = [8000, 8001]
 
 startCompositeService({
   services: {
@@ -66,7 +66,7 @@ You can use `configureHttpProxy` to configure it, like this...
 const { findPorts, startCompositeService, oncePortUsed, configureHttpProxy } = require('composite-service')
 
 const { PORT } = process.env
-const [apiPort, webPort] = findPorts(2, { exclude: PORT })
+const [apiPort, webPort] = [8000, 8001]
 
 startCompositeService({
   services: {
@@ -96,9 +96,10 @@ The examples only show composing nodejs http servers, but a service can be any p
 1. Runs in the terminal (i.e. in the foreground, not daemonized and in the background)
 2. Should run until receiving a shutdown (`SIGINT` or `SIGTERM`) signal. Should not exit by itself, as that would be considered a crash.
 
-The composite service shares the above characteristics. It is a terminal program and shouldn't exit until receiving a
-shutdown signal. *However*, if any of the composed services crash, the composite service will crash (after stopping
-remaining composed services)
+The composite service shares the above characteristics.
+It is a terminal program and shouldn't exit until receiving a shutdown signal.
+*However*, if any fatal errors occur, the composite service will stop any running services and exit with exit code `1`.
+Fatal errors can be: ... TODO
 
 ## Motivation
 
@@ -112,35 +113,38 @@ Advantages of running as a single service:
 1. simplified deployments & devops; works smoothly with any PaaS provider; never a need to update production services in a certain order
 2. allows us to effectively use PaaS features like [Heroku's Review Apps](https://devcenter.heroku.com/articles/github-integration-review-apps)
 3. with some PaaS providers (e.g. Heroku, render) saves the cost of hosting additional "apps" or "services"
-4. fewer steps (i.e. one step) to start the entire system (locally or in CI) for testing (manual or automated), and sometimes even for local development
+4. fewer steps (i.e. one step) to start the entire system (locally or in CI) for integration testing (manual or automated), and sometimes even for local development
 
 Another possible use case is grouping a bunch of "microservices" into one, to gain the same advantages listed above, as well as most of the advantages of microservices:
-- Composed services do, on a lower level, still run as independent programs, so one of them crashing doesn't interrupt the others.
-- Composed services may (or may not) be developed independently, in various repositories, by various teams, using various tools & languages.
-- Composed services can be run/deployed independently with minimal effort; you can easily *de*compose your composite service.
+
+- Services can be developed independently, to a range of degrees, from simply giving each it's own `package.json`,
+to having many repos, languages, and teams.
+- One service crashing doesn't interrupt the others, since they still, on a lower level run as independent programs.
+That (running independently on low level) also means that you can easily *de*compose your composite service at any time.
 
 ## Roadmap
 
+- check for excess config fields
+- set onceStarting & onceStopping at construction
 - propagate 'error' events from child processes
-- default `service[].ready` to `() => oncePortUsed(process.env.PORT)` if `process.env.PORT` is defined
 - service config `stdin`, default: process.stdin
-- use TS classes *sigh*
-- generate typedoc site
 - service `beforeStarting`, `afterStarted`, `beforeStopping`, `afterStopped`
-- service configs `preStart` & `postStart` (both with support for Cancellable Async Flows), `preStop` & `postStop` (without)
-- coerce config field types, for non-TS users
-- check for excess config fields, for non-TS users
-- tests for various configurations
-    - printConfig
-    - config that fails validation (also, in source, handle: same port used twice, same label used twice, etc.)
+- export `assertPortFree` helper
+- `const [apiPort, webPort] = findPorts(2, { exclude: PORT })`
+- `config.service[].tcp: {port, host?}` ??? tcpService(config): ComposedServiceConfig ????
+    1. assigns PORT (and HOST applicable) env vars
+    2. wraps `beforeStarting` to use `assertPortFree`
+    3. sets default `started` to `() => oncePortUsed(port)`
 - use `npm-run-path` package
+- `config.service[].handleExit` 'exit', 'restart', or function. Default 'restart'
+- generate typedoc site
+- tests
+    - unit tests for validation
+    - test config that fails at runtime (invalid command, specified port in use, etc.)
+    - test ctrl+c virtual-SIGINT shutdown
 
 ## Feature ideas
 
-- new helpers for `ready` config:
-    - `onceOutput(test: (line: string) => boolean): Promise<void>`
-    - `onceOutputIncludes(text: string): Promise<void>`
-- `config.service[].handleExit` 'exit', 'restart', or function. Default 'exit' (which is only current behavior)
 - `config.service[].startupTimeout` milliseconds to wait for port to open before timeout error (currently it waits basically forever)
 - for *nix: graceful shutdown & `config.service[].forceKillTimeout` option (milliseconds to wait before sending SIGKILL)
 - `config.service[].scale`

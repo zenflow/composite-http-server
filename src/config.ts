@@ -111,7 +111,6 @@ export function normalizeCompositeServiceConfig(
           serviceIds.includes(dependency),
           `Dependency on nonexistent service '${dependency}'`
         )
-        // TODO: Check for cyclical dependencies! Important!
       })
       let command =
         typeof config.command === 'string' // TODO: allow spaces in arguments of single-string commands
@@ -149,6 +148,16 @@ export function normalizeCompositeServiceConfig(
       return [id, { dependencies, command, env, ready }]
     })
   )
+  Object.keys(services).forEach(serviceId => checkForCyclicDeps(serviceId))
+  function checkForCyclicDeps(serviceId: string, path: string[] = []) {
+    _assert(
+      !path.includes(serviceId),
+      `Found cyclic dependency ${path.join(' -> ')}`
+    )
+    for (const dep of services[serviceId].dependencies) {
+      checkForCyclicDeps(dep, [...path, serviceId])
+    }
+  }
   _assert(Object.keys(services).length > 0, 'No configured service')
   return { printConfig, services }
 }

@@ -1,5 +1,5 @@
 const { createServer } = require('http')
-const { runService } = require('./helpers')
+const { runService } = require('./common')
 
 const server = createServer((_, res) => {
   res.write(process.env.RESPONSE_TEXT || '')

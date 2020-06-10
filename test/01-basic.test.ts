@@ -29,6 +29,7 @@ const getConfig = () => ({
 })
 
 describe('basic', () => {
+  jest.setTimeout(process.platform === 'win32' ? 15000 : 5000)
   let proc: CompositeProcess | undefined
   afterEach(async () => {
     if (proc) await proc.end()
@@ -53,7 +54,7 @@ Started all services`)
 
     expect(proc.output.splice(0).join('\n')).toBe(
       process.platform === 'win32'
-        ? '\n'
+        ? '\n' // Windows doesn't support gracefully terminating processes :(
         : `\
 Received shutdown signal 'SIGINT'
 Stopping all services...

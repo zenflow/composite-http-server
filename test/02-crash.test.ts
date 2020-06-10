@@ -28,6 +28,7 @@ const getConfig = () => ({
 })
 
 describe('crash', () => {
+  jest.setTimeout(process.platform === 'win32' ? 15000 : 5000)
   let proc: CompositeProcess | undefined
   afterEach(async () => {
     if (proc) await proc.end()
