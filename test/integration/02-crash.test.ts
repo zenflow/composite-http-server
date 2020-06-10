@@ -1,7 +1,4 @@
-import {
-  CompositeProcess,
-  getCompositeProcess,
-} from './helpers/composite-process'
+import { CompositeProcess } from './helpers/composite-process'
 import { ReadyConfigContext } from '../../dist'
 
 const ready = (ctx: ReadyConfigContext) =>
@@ -42,21 +39,26 @@ describe('crash', () => {
       Object.assign(config.services.second.env, {
         START_DELAY: '5000',
       })
-      proc = getCompositeProcess(config)
+      proc = await new CompositeProcess(config)
       await proc.ended
-      expect(proc.output.join('\n')).toBe(`\
-Starting all services...
-Starting service 'first'...
-Starting service 'second'...
-first  | \n\
-first  | \n\
-Error: Service 'first' exited
-Stopping all services...
-Stopping service 'second'...
-second | \n\
-second | \n\
-Stopped service 'second'
-Stopped all services\n\n`)
+      expect(proc.flushOutput()).toMatchInlineSnapshot(`
+        Array [
+          "Starting all services...",
+          "Starting service 'first'...",
+          "Starting service 'second'...",
+          "first  | ",
+          "first  | ",
+          "Error: Service 'first' exited",
+          "Stopping all services...",
+          "Stopping service 'second'...",
+          "second | ",
+          "second | ",
+          "Stopped service 'second'",
+          "Stopped all services",
+          "",
+          "",
+        ]
+      `)
     })
     it('before that service is started & after other service is started', async () => {
       const config = getConfig()
@@ -64,23 +66,28 @@ Stopped all services\n\n`)
         CRASH_BEFORE_STARTED: '1',
         CRASH_DELAY: '500',
       })
-      proc = getCompositeProcess(config)
+      proc = new CompositeProcess(config)
       await proc.ended
-      expect(proc.output.join('\n')).toBe(`\
-Starting all services...
-Starting service 'first'...
-Starting service 'second'...
-second | Started 🚀
-Started service 'second'
-first  | \n\
-first  | \n\
-Error: Service 'first' exited
-Stopping all services...
-Stopping service 'second'...
-second | \n\
-second | \n\
-Stopped service 'second'
-Stopped all services\n\n`)
+      expect(proc.flushOutput()).toMatchInlineSnapshot(`
+        Array [
+          "Starting all services...",
+          "Starting service 'first'...",
+          "Starting service 'second'...",
+          "second | Started 🚀",
+          "Started service 'second'",
+          "first  | ",
+          "first  | ",
+          "Error: Service 'first' exited",
+          "Stopping all services...",
+          "Stopping service 'second'...",
+          "second | ",
+          "second | ",
+          "Stopped service 'second'",
+          "Stopped all services",
+          "",
+          "",
+        ]
+      `)
     })
     it('after that service is started & before other service is started', async () => {
       const config = getConfig()
@@ -91,23 +98,28 @@ Stopped all services\n\n`)
       Object.assign(config.services.second.env, {
         START_DELAY: '5000',
       })
-      proc = getCompositeProcess(config)
+      proc = new CompositeProcess(config)
       await proc.ended
-      expect(proc.output.join('\n')).toBe(`\
-Starting all services...
-Starting service 'first'...
-Starting service 'second'...
-first  | Started 🚀
-Started service 'first'
-first  | \n\
-first  | \n\
-Error: Service 'first' exited
-Stopping all services...
-Stopping service 'second'...
-second | \n\
-second | \n\
-Stopped service 'second'
-Stopped all services\n\n`)
+      expect(proc.flushOutput()).toMatchInlineSnapshot(`
+        Array [
+          "Starting all services...",
+          "Starting service 'first'...",
+          "Starting service 'second'...",
+          "first  | Started 🚀",
+          "Started service 'first'",
+          "first  | ",
+          "first  | ",
+          "Error: Service 'first' exited",
+          "Stopping all services...",
+          "Stopping service 'second'...",
+          "second | ",
+          "second | ",
+          "Stopped service 'second'",
+          "Stopped all services",
+          "",
+          "",
+        ]
+      `)
     })
     it('after all services are started', async () => {
       const config = getConfig()
@@ -119,33 +131,38 @@ Stopped all services\n\n`)
         START_DELAY: '500',
         STOP_DELAY: '250',
       })
-      proc = getCompositeProcess(config)
+      proc = new CompositeProcess(config)
       await proc.ended
-      expect(proc.output.join('\n')).toBe(`\
-Starting all services...
-Starting service 'first'...
-Starting service 'second'...
-first  | Started 🚀
-Started service 'first'
-second | Started 🚀
-Started service 'second'
-Starting service 'third'...
-third  | Started 🚀
-Started service 'third'
-Started all services
-first  | \n\
-first  | \n\
-Error: Service 'first' exited
-Stopping all services...
-Stopping service 'second'...
-second | \n\
-second | \n\
-Stopped service 'second'
-Stopping service 'third'...
-third  | \n\
-third  | \n\
-Stopped service 'third'
-Stopped all services\n\n`)
+      expect(proc.flushOutput()).toMatchInlineSnapshot(`
+        Array [
+          "Starting all services...",
+          "Starting service 'first'...",
+          "Starting service 'second'...",
+          "first  | Started 🚀",
+          "Started service 'first'",
+          "second | Started 🚀",
+          "Started service 'second'",
+          "Starting service 'third'...",
+          "third  | Started 🚀",
+          "Started service 'third'",
+          "Started all services",
+          "first  | ",
+          "first  | ",
+          "Error: Service 'first' exited",
+          "Stopping all services...",
+          "Stopping service 'second'...",
+          "second | ",
+          "second | ",
+          "Stopped service 'second'",
+          "Stopping service 'third'...",
+          "third  | ",
+          "third  | ",
+          "Stopped service 'third'",
+          "Stopped all services",
+          "",
+          "",
+        ]
+      `)
     })
   })
 })

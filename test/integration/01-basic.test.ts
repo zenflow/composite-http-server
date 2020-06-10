@@ -1,7 +1,4 @@
-import {
-  CompositeProcess,
-  getReadyCompositeProcess,
-} from './helpers/composite-process'
+import { CompositeProcess } from './helpers/composite-process'
 
 const getConfig = () => ({
   services: {
@@ -35,42 +32,48 @@ describe('basic', () => {
     if (proc) await proc.end()
   })
   it('works', async () => {
-    proc = await getReadyCompositeProcess(getConfig())
-
-    expect(proc.output.splice(0).join('\n')).toBe(`\
-Starting all services...
-Starting service 'first'...
-Starting service 'second'...
-Started service 'second'
-second | Started 🚀
-first  | Started 🚀
-Started service 'first'
-Starting service 'third'...
-third  | Started 🚀
-Started service 'third'
-Started all services`)
-
+    proc = await new CompositeProcess(getConfig()).start()
+    expect(proc.flushOutput()).toMatchInlineSnapshot(`
+      Array [
+        "Starting all services...",
+        "Starting service 'first'...",
+        "Starting service 'second'...",
+        "Started service 'second'",
+        "second | Started 🚀",
+        "first  | Started 🚀",
+        "Started service 'first'",
+        "Starting service 'third'...",
+        "third  | Started 🚀",
+        "Started service 'third'",
+        "Started all services",
+      ]
+    `)
     await proc.end()
-
-    expect(proc.output.join('\n')).toBe(
-      process.platform === 'win32'
-        ? '\n' // Windows doesn't support gracefully terminating processes :(
-        : `\
-Received shutdown signal 'SIGINT'
-Stopping all services...
-Stopping service 'first'...
-Stopping service 'second'...
-second | \n\
-second | \n\
-Stopped service 'second'
-first  | \n\
-first  | \n\
-Stopped service 'first'
-Stopping service 'third'...
-third  | \n\
-third  | \n\
-Stopped service 'third'
-Stopped all services\n\n`
-    )
+    if (process.platform === 'win32') {
+      // Windows doesn't support gracefully terminating processes :(
+      expect(proc.flushOutput()).toStrictEqual(['', ''])
+    } else {
+      expect(proc.flushOutput()).toMatchInlineSnapshot(`
+        Array [
+          "Received shutdown signal 'SIGINT'",
+          "Stopping all services...",
+          "Stopping service 'first'...",
+          "Stopping service 'second'...",
+          "second | ",
+          "second | ",
+          "Stopped service 'second'",
+          "first  | ",
+          "first  | ",
+          "Stopped service 'first'",
+          "Stopping service 'third'...",
+          "third  | ",
+          "third  | ",
+          "Stopped service 'third'",
+          "Stopped all services",
+          "",
+          "",
+        ]
+      `)
+    }
   })
 })

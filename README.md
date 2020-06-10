@@ -125,22 +125,28 @@ That (running independently on low level) also means that you can easily *de*com
 ## Roadmap
 
 - propagate 'error' events from child processes
+- services should be stopped in the reverse of the order they're started in
 - httpProxyService()
 - service config `stdin`, default: process.stdin
 - service `beforeStarting`, `afterStarted`, `beforeStopping`, `afterStopped`
+
 - export `assertPortFree` helper
 - `const [apiPort, webPort] = findPorts(2, { exclude: PORT })`
 - `config.service[].tcp: {port, host?}` ??? tcpService(config): ComposedServiceConfig ????
     1. assigns PORT (and HOST applicable) env vars
     2. wraps `beforeStarting` to use `assertPortFree`
     3. sets default `started` to `() => oncePortUsed(port)`
-- use `npm-run-path` package
-- `config.service[].handleExit` 'exit', 'restart', or function. Default 'restart'
+
 - check for excess config fields
+- use `npm-run-path` package
+
+- `config.service[].handleExit` 'exit', 'restart', or function. Default 'restart'
+
 - tests
     - unit tests for validation
     - test config that fails at runtime (invalid command, specified port in use, etc.)
     - test ctrl+c virtual-SIGINT shutdown
+
 - generate typedoc site
 
 ## Feature ideas
