@@ -1,138 +1,161 @@
-# composite-http-server
+# composite-service
 
-Helps you to compose a single http server program from multiple constituent server programs (http or not).
+Helps you to compose multiple services into one
 
-Given a declarative configuration, including a description of a collection of constituent `servers`, it will:
-- Start and manage processes for constituent servers, interleaving and printing the stdout/stderr of each
-- Start an http server that proxies requests to the appropriate constituent server, as determined by configuration and the url path of the request
-
-Define your composite server in a script like this one...
+Define your composite service in a script like this one...
 
 ```js
 // composite.js
 
-const { startCompositeServer } = require('composite-http-server')
+const { findPorts, startCompositeService, oncePortUsed } = require('composite-service')
 
-startCompositeServer({
-  defaultPort: 3000,
-  servers: [
-    {
-      label: 'my-service',
-      command: 'node my-service/server.js',
-      port: 3001,
-      httpProxyPaths: ['/api/my-service'],
+const { PORT } = process.env
+const [apiPort, webPort] = findPorts(2, { exclude: PORT })
+
+startCompositeService({
+  services: {
+    api: {
+      command: 'node api/server.js',
+      env: { PORT: apiPort },
+      ready: () => oncePortUsed(apiPort),
     },
-    {
-      label: 'web',
+    web: {
       command: 'node web/server.js',
-      port: 3002,
-      httpProxyPaths: ['/'],
-      httpProxyOptions: {}
+      env: { PORT: webPort },
+      ready: () => oncePortUsed(webPort),
     },
-  ],
+    proxy: {
+      dependencies: ['api', 'web'],
+      command: 'node proxy.js',
+      env: { PORT, API_PORT: apiPort, WEB_PORT: webPort },
+      ready: () => oncePortUsed(PORT),
+    },
+  },
 })
 ```
 
-Run it...
+Run it with a defined `PORT`...
 
 ```
-$ node composite.js
-Starting server 'my-service'...
-Starting server 'web'...
-my-service | [out] Started 🚀
-web        | [out] Started 🚀
-Started server 'web' @ http://localhost:3002
-Started server 'my-service' @ http://localhost:3001
-Starting server '$proxy'...
-Started server '$proxy' @ http://localhost:3000
-Ready
+$ PORT=3000 && node composite.js
+Starting all services...
+Starting service 'api'...
+Starting service 'web'...
+api   | Started 🚀
+web   | Started 🚀
+Started service 'api'
+Started service 'web'
+Starting service 'proxy'...
+proxy | Started 🚀
+Started service 'proxy'
+Started all services
 ```
 
-Now you have an http server running at http://localhost:3000 which proxies requests to either of two underlying "constituent" servers:
-- all requests with URL under `/api/my-service` go to "my-service"
+You now have an http server running on the defined `PORT` which handles requests by proxying them to either of the other two internal/composed servers:
+- all requests with URL under `/api` go to "api"
 - all other requests with URL under `/` go to "web"
 
-### Features
+Now try pressing ctrl+C on your keyboard... (TODO)
 
-- You can define a constituent server with **no** `httpProxyPaths`, if it is meant to be used only by other constituent servers and not accessible via the http proxy.
-- You can define a constituent server that is **not http**, as long as it conforms to the "Specs for generic 'server program'" as described below.
-- The composite server starts gracefully; It doesn't accept requests until every constituent server is accepting requests.
-- If any constituent server exits (i.e. crashes) the remaining constituent servers will be killed and the composite server will exit.
+Now suppose you want to use the included http proxy server instead of writing (and re-writing) your own.
+You can use `configureHttpProxy` to configure it, like this...
 
-### Specs for generic 'server program'
+```js
+// composite.js
 
-This describes behavior which is expected of the constituent servers you define, and which you can expect of the composite server.
+const { findPorts, startCompositeService, oncePortUsed, configureHttpProxy } = require('composite-service')
 
-- should not exit by itself; should run until killed by another process
-- must serve over the port designated by the `PORT` environment variable
+const { PORT } = process.env
+const [apiPort, webPort] = findPorts(2, { exclude: PORT })
 
-### Configuration
+startCompositeService({
+  services: {
+    api: {
+      command: 'node api/server.js',
+      env: { PORT: apiPort },
+      ready: () => oncePortUsed(apiPort),
+    },
+    web: {
+      command: 'node web/server.js',
+      env: { PORT: webPort },
+      ready: () => oncePortUsed(webPort),
+    },
+    proxy: configureHttpProxy({
+      dependencies: ['api', 'web'],
+      port: PORT,
+      proxies: [
+        { context: '/api', target: `http://localhost:${apiPort}` },
+        { context: '/', target: `http://localhost:${webPort}` },
+      ],
+    }),
+  },
+})
+```
 
-- `config.printConfig` (type: `boolean`; optional; default: `false`) If set to `true`, the effective configuration will be printed before starting the composite server. Useful for debugging dynamic configurations.
-- `config.defaultPort` (type: `number`; optional; default: `3000`) *Default* port on which to start the composite server. This is *only* used if the `PORT` environment variable is not defined.
-- `config.httpProxyOptions` (type: `HttpProxyOptions`; optional; default: `{}`) [http-proxy-middleware options](https://github.com/chimurai/http-proxy-middleware#options) (without `target` or `router`) to be used when proxying to *any* of the described `servers`. You can also set these options per-server with `config.servers[].httpProxyOptions`.
-- `config.servers[]` (required) Description of constituent servers. Must contain one or more elements.
-- `config.servers[].label` (type: `string`; optional; default: server's index in the array) Symbol used to identify this server.
-- `config.servers[].env` (type: `object`; optional; default: `{}`) Environment variables to define for this server's process. It will already inherit all the environment variables of it's parent (the composite server process), so there's no need to explicitly propagate environment variables in your configuration. The constituent server process will also already have `PORT` defined appropriately.
-- `config.servers[].command` (type: `string | string[]`; required) Command used to run the server. If it's a single string, it will be parsed into binary and argument strings. If it's an array of strings, the first element is the binary, and the remaining elements are the arguments. The server should behave according to "Specs for generic 'http server program'" (above).
-- `config.servers[].host` (type: `string`; optional; default: `'localhost'`) Hostname that this server can be expected to start on.
-- `config.servers[].port` (type: `number`; required) Port number that this server can be expected to start on. This is passed to the constituent server process as the `PORT` environment variable.
-- `config.servers[].httpProxyPaths` (type: `string[]`; optional; default: `[]`) Absolute paths to check when determining which server to proxy an http request to. Each request is proxied to the first server that has a path that the request path is within.
-- `config.servers[].httpProxyOptions` (type: `HttpProxyOptions`; optional; default: `{}`) [http-proxy-middleware options](https://github.com/chimurai/http-proxy-middleware#options) (without `target` or `router`) to be used for the http proxy to this server. You can also set these options globally with `config.httpProxyOptions`.
+The examples only show composing nodejs http servers, but a service can be any program that fits this description:
+1. Runs in the terminal (i.e. in the foreground, not daemonized and in the background)
+2. Should run until receiving a shutdown (`SIGINT` or `SIGTERM`) signal. Should not exit by itself, as that would be considered a crash.
+
+The composite service shares the above characteristics. It is a terminal program and shouldn't exit until receiving a
+shutdown signal. *However*, if any of the composed services crash, the composite service will crash (after stopping
+remaining composed services)
 
 ## Motivation
 
-Sometimes we may want to use some open-source (or just reusable) http server as a *component* of our app or service.
-If we are thinking of that server as a *component* of our overall server, then we might want to include it *in* our
-overall server, rather than deploying it as its own independent service.
+Sometimes we want to use some open-source (or just reusable) service in our app or service.
+If we think of that reusable service as a *component* of our overall service,
+then we might want to include it *in* our overall service,
+rather than running it separately, and deploying it separately, as its own independent service.
 
-Advantages of the "single server" (or "monolith") approach:
-1. simplifies deployments & devops
-2. allows us to deploy to basically any PaaS provider
-3. allows us to effectively use PaaS features like [Heroku's Review Apps](https://devcenter.heroku.com/articles/github-integration-review-apps)
-4. with some PaaS providers (e.g. Heroku, render) saves the cost of hosting additional "apps" or "services"
+Advantages of running as a single service:
 
-There some real advantages of the "multiple servers" (or "microservices") approach too, which you should research for
-yourself. I think you will find that these benefits generally apply more to large-scale projects with many services,
-and maybe multiple teams. For smaller projects, it seems that the "single service" approach provides more advantage.
-Bear in mind that serious projects can often benefit from *starting out* small, and splitting out into separate
-services only as needed.
+1. simplified deployments & devops; works smoothly with any PaaS provider; never a need to update production services in a certain order
+2. allows us to effectively use PaaS features like [Heroku's Review Apps](https://devcenter.heroku.com/articles/github-integration-review-apps)
+3. with some PaaS providers (e.g. Heroku, render) saves the cost of hosting additional "apps" or "services"
+4. fewer steps (i.e. one step) to start the entire system (locally or in CI) for testing (manual or automated), and sometimes even for local development
 
-If you are unable build everything into a single http server program running as a single process type (by calling the
-server code from your own code) for whatever reason (maybe the constituent server is written in a different language
-than the rest of the project, maybe its source code is not available, maybe something else) then you can use
-composite-http-server to build everything into a single http server program running multiple process types internally.
+Another possible use case is grouping a bunch of "microservices" into one, to gain the same advantages listed above, as well as most of the advantages of microservices:
+- Composed services do, on a lower level, still run as independent programs, so one of them crashing doesn't interrupt the others.
+- Composed services may (or may not) be developed independently, in various repositories, by various teams, using various tools & languages.
+- Composed services can be run/deployed independently with minimal effort; you can easily *de*compose your composite service.
 
 ## Roadmap
 
-- use `npm-run-path` package
-- verify configured ports are available in "pre-flight check", & exit early/immediately if they are not
-- export a port finder utility (to be used with `start`)
-    - then it is possible to run tests concurrently (should we?)
-    - use it internally to get default `servers[].port`
-- perf optimization for tests on windows: when cleaning up & killing `proc`, don't wait whole time for proc to have `exited`
-- more tests for various configurations
+- propagate 'error' events from child processes
+- default `service[].ready` to `() => oncePortUsed(process.env.PORT)` if `process.env.PORT` is defined
+- service config `stdin`, default: process.stdin
+- use TS classes *sigh*
+- generate typedoc site
+- service `beforeStarting`, `afterStarted`, `beforeStopping`, `afterStopped`
+- service configs `preStart` & `postStart` (both with support for Cancellable Async Flows), `preStop` & `postStop` (without)
+- coerce config field types, for non-TS users
+- check for excess config fields, for non-TS users
+- tests for various configurations
     - printConfig
-    - omitting server[].labels, ...
     - config that fails validation (also, in source, handle: same port used twice, same label used twice, etc.)
-    - server with no `httpProxyPaths`
-    - glob patterns in `httpProxyPaths`
-    - httpProxyOptions & `server[].httpProxyOptions`
+- use `npm-run-path` package
 
 ## Feature ideas
 
-- `config.server[].handleExit` 'exit', 'restart', or function. Default 'exit' (which is only current behavior)
-- `config.server[].startupTimeout` milliseconds to wait for port to open before timeout error (currently it waits basically forever)
-- option to log requests in `$proxy` server
-- for *nix: graceful shutdown & `config.server[].forceKillTimeout` option (milliseconds to wait before sending SIGKILL)
-- `config.server[].scale`
+- new helpers for `ready` config:
+    - `onceOutput(test: (line: string) => boolean): Promise<void>`
+    - `onceOutputIncludes(text: string): Promise<void>`
+- `config.service[].handleExit` 'exit', 'restart', or function. Default 'exit' (which is only current behavior)
+- `config.service[].startupTimeout` milliseconds to wait for port to open before timeout error (currently it waits basically forever)
+- for *nix: graceful shutdown & `config.service[].forceKillTimeout` option (milliseconds to wait before sending SIGKILL)
+- `config.service[].scale`
     - maybe: number of workers in node cluster (support node servers only)
     - maybe: number of processes to start (requires configuring more port numbers & doing round-robin in proxy)
-- `config.server[].dependencies`: array of labels of servers to wait for to be ready before starting this server
 - use same node binary that main process was started with
 
 ## Changelog
 
+- `v3.0.0`
+    - `ready` & `dependencies` service configs
+    - Support composing services without http proxy
+    - Require explicit propagation of environment variables to composed services *if `env` is defined*
+    - `findPorts` utility
+    - Revised names & interfaces
 - `v2.0.0`
     - Run server procs w/o shell & kill server procs normally (w/o tree-kill) (32723c73467522551bc57da8575f57f59d04d11d)
     - Ensure importing module is free of side-effects (efeab195b234cac153b601dd1e0835cbd53bcf2d)

@@ -1,5 +1,4 @@
 export * from './assert'
-export * from './createProcess'
 export * from './Logger'
 export * from './mapStream'
 export * from './rightPad'

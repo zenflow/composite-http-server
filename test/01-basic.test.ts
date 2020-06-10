@@ -1,98 +1,75 @@
-// @ts-ignore
-import { fetchText } from './helpers/fetchText'
 import {
-  getReadyCompositeServerProcess,
-  CompositeServerProcess,
-  // @ts-ignore
-} from './helpers/compositeServerProcess'
-import { CompositeServerConfig } from '..'
+  CompositeProcess,
+  getReadyCompositeProcess,
+} from './helpers/composite-process'
 
-const basicConfig = (): CompositeServerConfig => ({
-  servers: [
-    {
-      label: 'other',
-      env: { RESPONSE_TEXT: 'other' },
-      command: ['node', 'test/fixtures/constituent-server.js'],
-      port: 3001,
-      httpProxyPaths: ['/other'],
+const getConfig = () => ({
+  services: {
+    first: {
+      command: `node test/fixtures/http-service.js`,
+      env: {
+        PORT: 3000,
+        // delays make the order of events, & thus the output, deterministic
+        START_DELAY: 500,
+        STOP_DELAY: 250,
+      },
+      ready: () => require('.').oncePortUsed(3000),
     },
-    {
-      label: 'default',
-      env: { RESPONSE_TEXT: 'default' },
-      command: 'node test/fixtures/constituent-server.js',
-      port: 3002,
-      httpProxyPaths: ['/'],
+    second: {
+      command: ['node', `test/fixtures/noop-service.js`],
+      // `env` & `ready` not required
     },
-  ],
+    third: {
+      dependencies: ['first', 'second'],
+      command: ['node', `test/fixtures/noop-service.js`],
+      ready: (ctx: any) =>
+        require('.').onceOutputLineIs(ctx.output, 'Started 🚀\n'),
+    },
+  },
 })
 
 describe('basic', () => {
-  jest.setTimeout(30 * 1000) // set high for windows which takes forever (~15 seconds for me) to kill processes
-  let proc: CompositeServerProcess | null = null
+  let proc: CompositeProcess | undefined
   afterEach(async () => {
-    if (proc) {
-      await proc.kill()
-    }
+    if (proc) await proc.end()
   })
   it('works', async () => {
-    proc = await getReadyCompositeServerProcess(3000, basicConfig())
-    expect(await fetchText('http://localhost:3000/other')).toBe('other')
-    expect(await fetchText('http://localhost:3000/other/foo')).toBe('other')
-    expect(await fetchText('http://localhost:3000/')).toBe('default')
-    expect(await fetchText('http://localhost:3000/foo')).toBe('default')
-  })
-  it('has consistent output', async () => {
-    proc = await getReadyCompositeServerProcess(3000, basicConfig())
+    proc = await getReadyCompositeProcess(getConfig())
 
-    const initialOutput = proc.output.splice(0)
-    expect(initialOutput[0]).toBe(`Starting server 'other'...`)
-    expect(initialOutput[1]).toBe(`Starting server 'default'...`)
-    const othOutStartedLine = initialOutput.indexOf(
-      `other   | [out] Started 🚀`
-    )
-    expect(othOutStartedLine).toBeGreaterThan(1)
-    const defOutStartedLine = initialOutput.indexOf(
-      `default | [out] Started 🚀`
-    )
-    expect(defOutStartedLine).toBeGreaterThan(1)
-    const startedOthLine = initialOutput.indexOf(
-      `Started server 'other' @ http://localhost:3001`
-    )
-    expect(startedOthLine).toBeGreaterThan(othOutStartedLine)
-    const startedDefLine = initialOutput.indexOf(
-      `Started server 'default' @ http://localhost:3002`
-    )
-    expect(startedDefLine).toBeGreaterThan(defOutStartedLine)
-    expect(Math.max(startedOthLine, startedDefLine)).toBe(5)
-    expect(initialOutput[6]).toBe(`Starting server '$proxy'...`)
-    expect(initialOutput[7]).toBe(
-      `Started server '$proxy' @ http://localhost:3000`
-    )
-    expect(initialOutput[8]).toBe('Ready')
-    expect(initialOutput[9]).toBeUndefined()
+    expect(proc.output.splice(0).join('\n')).toBe(`\
+Starting all services...
+Starting service 'first'...
+Starting service 'second'...
+Started service 'second'
+second | Started 🚀
+first  | Started 🚀
+Started service 'first'
+Starting service 'third'...
+third  | Started 🚀
+Started service 'third'
+Started all services`)
 
-    await proc.kill()
+    await proc.end()
 
-    const finalOutput = proc.output.splice(0)
-    if (process.platform === 'win32') {
-      expect(finalOutput[0]).toBe('')
-      expect(finalOutput[1]).toBe('')
-      expect(finalOutput[2]).toBeUndefined()
-    } else {
-      expect(finalOutput[0]).toBe('Received SIGINT signal')
-      expect(finalOutput[1]).toBe('Stopping servers...')
-      expect(finalOutput.slice(2, 8).sort()).toStrictEqual([
-        '$proxy  | [ERR] ',
-        '$proxy  | [out] ',
-        'default | [ERR] ',
-        'default | [out] ',
-        'other   | [ERR] ',
-        'other   | [out] ',
-      ])
-      expect(finalOutput[8]).toBe('Stopped servers')
-      expect(finalOutput[9]).toBe('')
-      expect(finalOutput[10]).toBe('')
-      expect(finalOutput[11]).toBeUndefined()
-    }
+    expect(proc.output.splice(0).join('\n')).toBe(
+      process.platform === 'win32'
+        ? '\n'
+        : `\
+Received shutdown signal 'SIGINT'
+Stopping all services...
+Stopping service 'first'...
+Stopping service 'second'...
+second | \n\
+second | \n\
+Stopped service 'second'
+first  | \n\
+first  | \n\
+Stopped service 'first'
+Stopping service 'third'...
+third  | \n\
+third  | \n\
+Stopped service 'third'
+Stopped all services\n\n`
+    )
   })
 })

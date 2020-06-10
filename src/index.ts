@@ -1,6 +1,7 @@
 export {
-  CompositeServerConfig,
-  HttpProxyOptions,
-  ConstituentServerConfig,
+  CompositeServiceConfig,
+  ComposedServiceConfig,
+  ReadyConfigContext,
 } from './config'
-export { startCompositeServer } from './composite-server'
+export { startCompositeService } from './CompositeService'
+export * from './ready-helpers'
