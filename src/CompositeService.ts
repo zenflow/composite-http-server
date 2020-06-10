@@ -2,15 +2,11 @@ import mergeStream from 'merge-stream'
 import serializeJavascript from 'serialize-javascript'
 import {
   CompositeServiceConfig,
-  validateAndNormalizeConfig,
   NormalizedCompositeServiceConfig,
+  validateAndNormalizeConfig,
 } from './config'
 import { assert, mapStream, rightPad } from './util'
-import {
-  ComposedService,
-  OnceStartingHandler,
-  OnceStoppingHandler,
-} from './ComposedService'
+import { ComposedService } from './ComposedService'
 
 let started = false
 export function startCompositeService(config: CompositeServiceConfig) {
@@ -20,11 +16,9 @@ export function startCompositeService(config: CompositeServiceConfig) {
 }
 
 class CompositeService {
-  private output = mergeStream()
   private config: NormalizedCompositeServiceConfig
   private services: ComposedService[]
   private serviceMap: Map<string, ComposedService>
-  private maxLabelLength: number
   private stopping = false
 
   constructor(config: CompositeServiceConfig) {
@@ -44,49 +38,34 @@ class CompositeService {
       printConfig()
     }
 
-    this.output.pipe(process.stdout)
-
     for (const signal of ['SIGINT', 'SIGTERM']) {
       process.on(signal, () => {
         this.die(`Received shutdown signal '${signal}'`)
       })
     }
 
-    this.services = Object.entries(this.config.services).map(([id, config]) => {
-      const onceStarting: OnceStartingHandler = (startPromise, process) => {
-        console.log(`Starting service '${id}'...`)
-        startPromise.then(() => {
-          console.log(`Started service '${id}'`)
-        })
-        this.output.add(
-          process.output.pipe(
-            mapStream(line => `${rightPad(id, this.maxLabelLength)} | ${line}`)
-          )
-        )
-        process.ended.then(() => {
-          this.die(`Error: Service '${id}' exited`)
-        })
-      }
-      const onceStopping: OnceStoppingHandler = stopPromise => {
-        console.log(`Stopping service '${id}'...`)
-        stopPromise.then(() => {
-          console.log(`Stopped service '${id}'`)
-        })
-      }
-      return new ComposedService(id, config, onceStarting, onceStopping)
-    })
+    this.services = Object.entries(this.config.services).map(
+      ([id, config]) => new ComposedService(id, config, this.die.bind(this))
+    )
     this.serviceMap = new Map(
       this.services.map(service => [service.id, service])
     )
 
-    this.maxLabelLength = Math.max(
+    const maxLabelLength = Math.max(
       ...Object.keys(this.config.services).map(({ length }) => length)
     )
+    mergeStream(
+      this.services.map(service =>
+        service.output.pipe(
+          mapStream(line => `${rightPad(service.id, maxLabelLength)} | ${line}`)
+        )
+      )
+    ).pipe(process.stdout)
 
     console.log('Starting all services...')
-    Promise.all(this.services.map(service => this.startService(service)))
-      .then(() => console.log('Started all services'))
-      .catch(error => this.die(errorText(error)))
+    Promise.all(
+      this.services.map(service => this.startService(service))
+    ).then(() => console.log('Started all services'))
   }
 
   private async startService(service: ComposedService) {
@@ -99,18 +78,18 @@ class CompositeService {
     await service.start()
   }
 
-  private die(message: string) {
-    if (this.stopping) {
-      return
+  private die(message: string): Promise<never> {
+    if (!this.stopping) {
+      this.stopping = true
+      console.log(message)
+      console.log('Stopping all services...')
+      Promise.all(this.services.map(service => this.stopService(service)))
+        .then(() => console.log('Stopped all services'))
+        // Wait one tick for output to flush
+        .then(() => process.exit(1))
     }
-    this.stopping = true
-    console.log(message)
-    console.log('Stopping all services...')
-    // TODO: individually .catch(error => { console.log(`Error stopping service '${service.id}': ${errorText(error)}`) })
-    Promise.all(this.services.map(service => this.stopService(service)))
-      .then(() => console.log('Stopped all services'))
-      // Wait one tick for output to flush
-      .then(() => process.exit(1))
+    // simply return a promise that never resolves, since we can't do anything after exiting anyways
+    return new Promise<never>(() => {})
   }
 
   private async stopService(service: ComposedService) {
@@ -121,8 +100,4 @@ class CompositeService {
     )
     await service.stop()
   }
-}
-
-function errorText(maybeError: any): string {
-  return (maybeError instanceof Error && maybeError.stack) || `${maybeError}`
 }

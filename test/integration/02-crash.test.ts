@@ -18,7 +18,7 @@ const getConfig = () => ({
     },
     third: {
       dependencies: ['first', 'second'],
-      command: ['node', `test/integration/fixtures/noop-service.js`],
+      command: `node test/integration/fixtures/noop-service.js`,
       ready,
     },
   },
@@ -34,12 +34,12 @@ describe('crash', () => {
     it('before any service is started', async () => {
       const config = getConfig()
       Object.assign(config.services.first.env, {
-        CRASH_BEFORE_STARTED: '1',
+        CRASH_BEFORE_STARTED: 1,
       })
       Object.assign(config.services.second.env, {
-        START_DELAY: '5000',
+        START_DELAY: 5000,
       })
-      proc = await new CompositeProcess(config)
+      proc = new CompositeProcess(config)
       await proc.ended
       expect(proc.flushOutput()).toMatchInlineSnapshot(`
         Array [
@@ -48,7 +48,7 @@ describe('crash', () => {
           "Starting service 'second'...",
           "first  | ",
           "first  | ",
-          "Error: Service 'first' exited",
+          "Process for service 'first' exited",
           "Stopping all services...",
           "Stopping service 'second'...",
           "second | ",
@@ -63,8 +63,8 @@ describe('crash', () => {
     it('before that service is started & after other service is started', async () => {
       const config = getConfig()
       Object.assign(config.services.first.env, {
-        CRASH_BEFORE_STARTED: '1',
-        CRASH_DELAY: '500',
+        CRASH_BEFORE_STARTED: 1,
+        CRASH_DELAY: 500,
       })
       proc = new CompositeProcess(config)
       await proc.ended
@@ -77,7 +77,7 @@ describe('crash', () => {
           "Started service 'second'",
           "first  | ",
           "first  | ",
-          "Error: Service 'first' exited",
+          "Process for service 'first' exited",
           "Stopping all services...",
           "Stopping service 'second'...",
           "second | ",
@@ -92,11 +92,11 @@ describe('crash', () => {
     it('after that service is started & before other service is started', async () => {
       const config = getConfig()
       Object.assign(config.services.first.env, {
-        CRASH_AFTER_STARTED: '1',
-        CRASH_DELAY: '500',
+        CRASH_AFTER_STARTED: 1,
+        CRASH_DELAY: 500,
       })
       Object.assign(config.services.second.env, {
-        START_DELAY: '5000',
+        START_DELAY: 5000,
       })
       proc = new CompositeProcess(config)
       await proc.ended
@@ -109,7 +109,7 @@ describe('crash', () => {
           "Started service 'first'",
           "first  | ",
           "first  | ",
-          "Error: Service 'first' exited",
+          "Process for service 'first' exited",
           "Stopping all services...",
           "Stopping service 'second'...",
           "second | ",
@@ -124,12 +124,12 @@ describe('crash', () => {
     it('after all services are started', async () => {
       const config = getConfig()
       Object.assign(config.services.first.env, {
-        CRASH_AFTER_STARTED: '1',
-        CRASH_DELAY: '1000',
+        CRASH_AFTER_STARTED: 1,
+        CRASH_DELAY: 1000,
       })
       Object.assign(config.services.second.env, {
-        START_DELAY: '500',
-        STOP_DELAY: '250',
+        START_DELAY: 500,
+        STOP_DELAY: 500,
       })
       proc = new CompositeProcess(config)
       await proc.ended
@@ -148,7 +148,7 @@ describe('crash', () => {
           "Started all services",
           "first  | ",
           "first  | ",
-          "Error: Service 'first' exited",
+          "Process for service 'first' exited",
           "Stopping all services...",
           "Stopping service 'second'...",
           "second | ",
@@ -164,5 +164,80 @@ describe('crash', () => {
         ]
       `)
     })
+  })
+  it('crashes when given invalid command', async () => {
+    const config = getConfig()
+    config.services.second.command = 'this_command_does_not_exist'
+    Object.assign(config.services.first.env, {
+      START_DELAY: 5000,
+    })
+    proc = new CompositeProcess(config)
+    await proc.ended
+    expect(proc.flushOutput()).toMatchInlineSnapshot(`
+      Array [
+        "Starting all services...",
+        "Starting service 'first'...",
+        "Starting service 'second'...",
+        "Error spawning process for service 'second':",
+        "Error: spawn this_command_does_not_exist ENOENT",
+        "Stopping all services...",
+        "Stopping service 'first'...",
+        "first  | ",
+        "first  | ",
+        "Stopped service 'first'",
+        "Stopped all services",
+        "",
+        "",
+      ]
+    `)
+  })
+  it('crashes when `ready` throws error', async () => {
+    const config = getConfig()
+    config.services.first.ready = () => {
+      ;(global as any).foo.bar()
+    }
+    Object.assign(config.services.first.env, {
+      START_DELAY: 5000,
+    })
+    Object.assign(config.services.second.env, {
+      START_DELAY: 5000,
+      STOP_DELAY: 500,
+    })
+    proc = new CompositeProcess(config)
+    await proc.ended
+    const output = proc.flushOutput()
+
+    // redact stack trace lines for snapshot since the file paths in it will vary from system to system
+    const isStackTraceLine = (line: string) => line.startsWith('    at ')
+    const stackTraceStart = output.findIndex(isStackTraceLine)
+    expect(stackTraceStart).toBeGreaterThan(-1)
+    const stackTraceLength = output
+      .slice(stackTraceStart)
+      .findIndex((line: string) => !isStackTraceLine(line))
+    expect(stackTraceLength).toBeGreaterThan(-1)
+    output.splice(stackTraceStart, stackTraceLength, '--- stack trace ---')
+
+    expect(output).toMatchInlineSnapshot(`
+      Array [
+        "Starting all services...",
+        "Starting service 'first'...",
+        "Starting service 'second'...",
+        "Error waiting for service 'first' to be ready:",
+        "TypeError: Cannot read property 'bar' of undefined",
+        "--- stack trace ---",
+        "Stopping all services...",
+        "Stopping service 'first'...",
+        "Stopping service 'second'...",
+        "first  | ",
+        "first  | ",
+        "Stopped service 'first'",
+        "second | ",
+        "second | ",
+        "Stopped service 'second'",
+        "Stopped all services",
+        "",
+        "",
+      ]
+    `)
   })
 })

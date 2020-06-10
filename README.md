@@ -124,7 +124,6 @@ That (running independently on low level) also means that you can easily *de*com
 
 ## Roadmap
 
-- propagate 'error' events from child processes
 - services should be stopped in the reverse of the order they're started in
 - httpProxyService()
 - service config `stdin`, default: process.stdin

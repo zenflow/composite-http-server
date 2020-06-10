@@ -12,7 +12,6 @@ export class CompositeProcess {
   readonly ended: Promise<void>
   private output: string[] = []
   private proc: ChildProcessWithoutNullStreams
-  private didExit = false
   constructor(config: CompositeServiceConfig) {
     const configString = serializeJavascript(config, { unsafe: true })
     const script = `require('.').startCompositeService(${configString})`
@@ -26,9 +25,7 @@ export class CompositeProcess {
     }
     outputStream.on('data', line => this.output.push(line))
     this.ready = onceOutputLineIs(outputStream, 'Started all services')
-    this.ended = once(outputStream, 'end').then(() => {
-      this.didExit = true
-    })
+    this.ended = once(outputStream, 'end').then(() => {})
   }
   async start(): Promise<CompositeProcess> {
     await Promise.race([
@@ -41,9 +38,7 @@ export class CompositeProcess {
     return this.output.splice(0)
   }
   end(): Promise<void> {
-    if (!this.didExit) {
-      this.proc.kill('SIGINT')
-    }
+    this.proc.kill('SIGINT')
     return this.ended
   }
 }
