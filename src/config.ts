@@ -89,7 +89,7 @@ export interface NormalizedComposedServiceConfig {
   ready: (ctx: ReadyConfigContext) => Promise<any>
 }
 
-export function normalizeCompositeServiceConfig(
+export function validateAndNormalizeConfig(
   config: CompositeServiceConfig
 ): NormalizedCompositeServiceConfig {
   // Let's do a lot of validation, since most scripts to implement composite server will NOT use TypeScript
@@ -152,7 +152,10 @@ export function normalizeCompositeServiceConfig(
   function checkForCyclicDeps(serviceId: string, path: string[] = []) {
     _assert(
       !path.includes(serviceId),
-      `Found cyclic dependency ${path.join(' -> ')}`
+      `Found cyclic dependency ${path
+        .slice(path.indexOf(serviceId))
+        .concat(serviceId)
+        .join(' -> ')}`
     )
     for (const dep of services[serviceId].dependencies) {
       checkForCyclicDeps(dep, [...path, serviceId])

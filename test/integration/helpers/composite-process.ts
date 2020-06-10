@@ -3,9 +3,9 @@ import { spawn } from 'child_process'
 import { once } from 'events'
 import mergeStream from 'merge-stream'
 import splitStream from 'split'
-import { CompositeServiceConfig } from '../..'
+import { CompositeServiceConfig } from '../../..'
 
-const LOG_OUTPUT_LINES = true
+const LOG_OUTPUT_LINES = false
 
 export interface CompositeProcess {
   output: string[]

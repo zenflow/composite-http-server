@@ -2,7 +2,7 @@ import {
   CompositeProcess,
   getCompositeProcess,
 } from './helpers/composite-process'
-import { ReadyConfigContext } from '..'
+import { ReadyConfigContext } from '../../dist'
 
 const ready = (ctx: ReadyConfigContext) =>
   require('.').onceOutputLineIncludes(ctx.output, '🚀')
@@ -10,18 +10,18 @@ const ready = (ctx: ReadyConfigContext) =>
 const getConfig = () => ({
   services: {
     first: {
-      command: `node test/fixtures/noop-service.js`,
+      command: `node test/integration/fixtures/noop-service.js`,
       env: {},
       ready,
     },
     second: {
-      command: `node test/fixtures/noop-service.js`,
+      command: `node test/integration/fixtures/noop-service.js`,
       env: {},
       ready,
     },
     third: {
       dependencies: ['first', 'second'],
-      command: ['node', `test/fixtures/noop-service.js`],
+      command: ['node', `test/integration/fixtures/noop-service.js`],
       ready,
     },
   },

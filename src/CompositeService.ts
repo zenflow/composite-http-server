@@ -2,7 +2,7 @@ import mergeStream from 'merge-stream'
 import serializeJavascript from 'serialize-javascript'
 import {
   CompositeServiceConfig,
-  normalizeCompositeServiceConfig,
+  validateAndNormalizeConfig,
   NormalizedCompositeServiceConfig,
 } from './config'
 import { assert, mapStream, rightPad } from './util'
@@ -29,9 +29,9 @@ class CompositeService {
         'config =',
         serializeJavascript(config, { space: 2, unsafe: true })
       )
-    // TODO: return any errorS (plural) from normalizeCompositeServiceConfig (as well as normalized config)
+    // TODO: return any errorS (plural) from validateAndNormalizeConfig (as well as normalized config)
     try {
-      this.config = normalizeCompositeServiceConfig(config)
+      this.config = validateAndNormalizeConfig(config)
     } catch (error) {
       printConfig()
       throw error

@@ -6,7 +6,7 @@ import {
 const getConfig = () => ({
   services: {
     first: {
-      command: `node test/fixtures/http-service.js`,
+      command: `node test/integration/fixtures/http-service.js`,
       env: {
         PORT: 3000,
         // delays make the order of events, & thus the output, deterministic
@@ -16,12 +16,12 @@ const getConfig = () => ({
       ready: () => require('.').oncePortUsed(3000),
     },
     second: {
-      command: ['node', `test/fixtures/noop-service.js`],
+      command: ['node', `test/integration/fixtures/noop-service.js`],
       // `env` & `ready` not required
     },
     third: {
       dependencies: ['first', 'second'],
-      command: ['node', `test/fixtures/noop-service.js`],
+      command: ['node', `test/integration/fixtures/noop-service.js`],
       ready: (ctx: any) =>
         require('.').onceOutputLineIs(ctx.output, 'Started 🚀\n'),
     },
@@ -52,7 +52,7 @@ Started all services`)
 
     await proc.end()
 
-    expect(proc.output.splice(0).join('\n')).toBe(
+    expect(proc.output.join('\n')).toBe(
       process.platform === 'win32'
         ? '\n' // Windows doesn't support gracefully terminating processes :(
         : `\

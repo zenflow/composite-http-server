@@ -5,7 +5,7 @@ import {
   CompositeProcess,
   // @ts-ignore
 } from './helpers/composite-process'
-import { CompositeServerConfig } from '..'
+import { CompositeServerConfig } from '../../dist'
 
 const basicConfig = (): CompositeServerConfig => ({
   servers: [
