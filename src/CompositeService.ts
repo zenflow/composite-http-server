@@ -6,7 +6,11 @@ import {
   NormalizedCompositeServiceConfig,
 } from './config'
 import { assert, mapStream, rightPad } from './util'
-import { ComposedService } from './ComposedService'
+import {
+  ComposedService,
+  OnceStartingHandler,
+  OnceStoppingHandler,
+} from './ComposedService'
 
 let started = false
 export function startCompositeService(config: CompositeServiceConfig) {
@@ -48,9 +52,29 @@ class CompositeService {
       })
     }
 
-    this.services = Object.entries(this.config.services).map(
-      ([id, config]) => new ComposedService(id, config)
-    )
+    this.services = Object.entries(this.config.services).map(([id, config]) => {
+      const onceStarting: OnceStartingHandler = (startPromise, process) => {
+        console.log(`Starting service '${id}'...`)
+        startPromise.then(() => {
+          console.log(`Started service '${id}'`)
+        })
+        this.output.add(
+          process.output.pipe(
+            mapStream(line => `${rightPad(id, this.maxLabelLength)} | ${line}`)
+          )
+        )
+        process.ended.then(() => {
+          this.die(`Error: Service '${id}' exited`)
+        })
+      }
+      const onceStopping: OnceStoppingHandler = stopPromise => {
+        console.log(`Stopping service '${id}'...`)
+        stopPromise.then(() => {
+          console.log(`Stopped service '${id}'`)
+        })
+      }
+      return new ComposedService(id, config, onceStarting, onceStopping)
+    })
     this.serviceMap = new Map(
       this.services.map(service => [service.id, service])
     )
@@ -68,26 +92,11 @@ class CompositeService {
   private async startService(service: ComposedService) {
     await Promise.all(
       service.config.dependencies.map(id =>
-        this.startService(this.serviceMap.get(id) as ComposedService)
+        this.startService(this.serviceMap.get(id)!)
       )
     )
     if (this.stopping) return
-    await service.start((startPromise, process) => {
-      console.log(`Starting service '${service.id}'...`)
-      startPromise.then(() => {
-        console.log(`Started service '${service.id}'`)
-      })
-      this.output.add(
-        process.output.pipe(
-          mapStream(
-            line => `${rightPad(service.id, this.maxLabelLength)} | ${line}`
-          )
-        )
-      )
-      process.ended.then(() => {
-        this.die(`Error: Service '${service.id}' exited`)
-      })
-    })
+    await service.start()
   }
 
   private die(message: string) {
@@ -110,12 +119,7 @@ class CompositeService {
         this.stopService(this.serviceMap.get(id)!)
       )
     )
-    await service.stop(stopPromise => {
-      console.log(`Stopping service '${service.id}'...`)
-      stopPromise.then(() => {
-        console.log(`Stopped service '${service.id}'`)
-      })
-    })
+    await service.stop()
   }
 }
 

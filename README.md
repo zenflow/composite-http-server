@@ -124,9 +124,8 @@ That (running independently on low level) also means that you can easily *de*com
 
 ## Roadmap
 
-- check for excess config fields
-- set onceStarting & onceStopping at construction
 - propagate 'error' events from child processes
+- httpProxyService()
 - service config `stdin`, default: process.stdin
 - service `beforeStarting`, `afterStarted`, `beforeStopping`, `afterStopped`
 - export `assertPortFree` helper
@@ -137,20 +136,19 @@ That (running independently on low level) also means that you can easily *de*com
     3. sets default `started` to `() => oncePortUsed(port)`
 - use `npm-run-path` package
 - `config.service[].handleExit` 'exit', 'restart', or function. Default 'restart'
-- generate typedoc site
+- check for excess config fields
 - tests
     - unit tests for validation
     - test config that fails at runtime (invalid command, specified port in use, etc.)
     - test ctrl+c virtual-SIGINT shutdown
+- generate typedoc site
 
 ## Feature ideas
 
 - `config.service[].startupTimeout` milliseconds to wait for port to open before timeout error (currently it waits basically forever)
 - for *nix: graceful shutdown & `config.service[].forceKillTimeout` option (milliseconds to wait before sending SIGKILL)
-- `config.service[].scale`
-    - maybe: number of workers in node cluster (support node servers only)
-    - maybe: number of processes to start (requires configuring more port numbers & doing round-robin in proxy)
-- use same node binary that main process was started with
+- `nodeClusterService({script: '...', scale: 4})` (uses same node binary that main process was started with)
+- http-proxy: stop accepting new requests, but finish pending requests, when SIGTERM received
 
 ## Changelog
 

@@ -6,10 +6,10 @@ import splitStream from 'split'
 const split = () => splitStream((line: string) => `${line}\n`)
 
 export class InternalProcess {
-  private child: ChildProcessWithoutNullStreams
-  output: ReturnType<typeof mergeStream>
+  private readonly child: ChildProcessWithoutNullStreams
+  readonly output: ReturnType<typeof mergeStream>
   isEnded = false
-  ended: Promise<void>
+  readonly ended: Promise<void>
   constructor(command: string[], env: { [key: string]: string }) {
     const { PATH } = process.env
     this.child = spawn(command[0], command.slice(1), {

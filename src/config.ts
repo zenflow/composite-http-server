@@ -113,7 +113,7 @@ export function validateAndNormalizeConfig(
         )
       })
       let command =
-        typeof config.command === 'string' // TODO: allow spaces in arguments of single-string commands
+        typeof config.command === 'string'
           ? config.command.split(/\s+/).filter(Boolean)
           : config.command
       __assert(
