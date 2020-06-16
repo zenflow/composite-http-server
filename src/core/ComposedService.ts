@@ -1,5 +1,8 @@
 import { PassThrough } from 'stream'
-import { NormalizedComposedServiceConfig, ReadyConfigContext } from './config'
+import {
+  NormalizedComposedServiceConfig,
+  ReadyConfigContext,
+} from './config-types'
 import { InternalProcess } from './InternalProcess'
 
 export class ComposedService {

@@ -1,9 +1,8 @@
-import serializeJavascript from 'serialize-javascript'
 import { spawn, ChildProcessWithoutNullStreams } from 'child_process'
 import { once } from 'events'
 import mergeStream from 'merge-stream'
 import splitStream from 'split'
-import { CompositeServiceConfig, onceOutputLineIs } from '../../..'
+import { onceOutputLineIs } from '../../..'
 
 const LOG_OUTPUT_LINES = false
 
@@ -12,9 +11,7 @@ export class CompositeProcess {
   readonly ended: Promise<void>
   private output: string[] = []
   private proc: ChildProcessWithoutNullStreams
-  constructor(config: CompositeServiceConfig) {
-    const configString = serializeJavascript(config, { unsafe: true })
-    const script = `require('.').startCompositeService(${configString})`
+  constructor(script: string) {
     this.proc = spawn('node', ['-e', script])
     const outputStream = mergeStream([
       this.proc.stdout.setEncoding('utf8').pipe(splitStream()),

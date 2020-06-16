@@ -1,11 +1,13 @@
 import mergeStream from 'merge-stream'
 import serializeJavascript from 'serialize-javascript'
+import { Duplex } from 'stream'
+import mapStreamAsync from 'map-stream'
 import {
   CompositeServiceConfig,
   NormalizedCompositeServiceConfig,
-  validateAndNormalizeConfig,
-} from './config'
-import { assert, mapStream, rightPad } from './util'
+} from './config-types'
+import { normalizeCompositeServiceConfig } from './normalizeCompositeServiceConfig'
+import { assert } from './assert'
 import { ComposedService } from './ComposedService'
 
 let started = false
@@ -15,7 +17,8 @@ export function startCompositeService(config: CompositeServiceConfig) {
   new CompositeService(config)
 }
 
-class CompositeService {
+// TODO: Move all of this into startCompositeService
+export class CompositeService {
   private config: NormalizedCompositeServiceConfig
   private services: ComposedService[]
   private serviceMap: Map<string, ComposedService>
@@ -27,9 +30,9 @@ class CompositeService {
         'config =',
         serializeJavascript(config, { space: 2, unsafe: true })
       )
-    // TODO: return any errorS (plural) from validateAndNormalizeConfig (as well as normalized config)
+    // TODO: return any errorS (plural) from normalizeCompositeServiceConfig (as well as normalized config)
     try {
-      this.config = validateAndNormalizeConfig(config)
+      this.config = normalizeCompositeServiceConfig(config)
     } catch (error) {
       printConfig()
       throw error
@@ -98,4 +101,18 @@ class CompositeService {
     await Promise.all(toStopFirst.map(service => this.stopService(service)))
     await service.stop()
   }
+}
+
+function mapStream(mapper: (arg0: string) => string): Duplex {
+  return mapStreamAsync((string: string, cb: Function) =>
+    cb(null, mapper(string))
+  )
+}
+
+function rightPad(string: string, length: number): string {
+  let result = string
+  while (result.length < length) {
+    result += ' '
+  }
+  return result
 }

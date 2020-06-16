@@ -1,28 +1,25 @@
 import { CompositeProcess } from './helpers/composite-process'
-import { ReadyConfigContext } from '../../dist'
 
-const ready = (ctx: ReadyConfigContext) =>
-  require('.').onceOutputLineIncludes(ctx.output, '🚀')
-
-const getConfig = () => ({
-  services: {
-    first: {
-      command: `node test/integration/fixtures/noop-service.js`,
-      env: {},
-      ready,
-    },
-    second: {
-      command: `node test/integration/fixtures/noop-service.js`,
-      env: {},
-      ready,
-    },
-    third: {
-      dependencies: ['first', 'second'],
-      command: `node test/integration/fixtures/noop-service.js`,
-      ready,
-    },
-  },
-})
+const getScript = (customCode: string) => {
+  return `
+    const { onceOutputLineIncludes, startCompositeService } = require('.');
+    const command = 'node test/integration/fixtures/noop-service.js';
+    const ready = ctx => onceOutputLineIncludes(ctx.output, '🚀');
+    const config = {
+      services: {
+        first: { command, ready },
+        second: { command, ready },
+        third: {
+          dependencies: ['first', 'second'],
+          command,
+          // use default 'ready'
+        },
+      },
+    };
+    ${customCode};
+    startCompositeService(config);
+  `
+}
 
 describe('crash', () => {
   jest.setTimeout(process.platform === 'win32' ? 15000 : 5000)
@@ -32,14 +29,11 @@ describe('crash', () => {
   })
   describe('crashes when a composed service crashes', () => {
     it('before any service is started', async () => {
-      const config = getConfig()
-      Object.assign(config.services.first.env, {
-        CRASH_BEFORE_STARTED: 1,
-      })
-      Object.assign(config.services.second.env, {
-        START_DELAY: 5000,
-      })
-      proc = new CompositeProcess(config)
+      const script = getScript(`
+        config.services.first.env = { CRASH_BEFORE_STARTED: 1 };
+        config.services.second.env = { START_DELAY: 5000 };
+      `)
+      proc = new CompositeProcess(script)
       await proc.ended
       expect(proc.flushOutput()).toMatchInlineSnapshot(`
         Array [
@@ -61,12 +55,10 @@ describe('crash', () => {
       `)
     })
     it('before that service is started & after other service is started', async () => {
-      const config = getConfig()
-      Object.assign(config.services.first.env, {
-        CRASH_BEFORE_STARTED: 1,
-        CRASH_DELAY: 500,
-      })
-      proc = new CompositeProcess(config)
+      const script = getScript(`
+        config.services.first.env = { CRASH_BEFORE_STARTED: 1, CRASH_DELAY: 500 };
+      `)
+      proc = new CompositeProcess(script)
       await proc.ended
       expect(proc.flushOutput()).toMatchInlineSnapshot(`
         Array [
@@ -90,15 +82,11 @@ describe('crash', () => {
       `)
     })
     it('after that service is started & before other service is started', async () => {
-      const config = getConfig()
-      Object.assign(config.services.first.env, {
-        CRASH_AFTER_STARTED: 1,
-        CRASH_DELAY: 500,
-      })
-      Object.assign(config.services.second.env, {
-        START_DELAY: 5000,
-      })
-      proc = new CompositeProcess(config)
+      const script = getScript(`
+        config.services.first.env = { CRASH_AFTER_STARTED: 1, CRASH_DELAY: 500 };
+        config.services.second.env = { START_DELAY: 5000 };
+      `)
+      proc = new CompositeProcess(script)
       await proc.ended
       expect(proc.flushOutput()).toMatchInlineSnapshot(`
         Array [
@@ -122,16 +110,11 @@ describe('crash', () => {
       `)
     })
     it('after all services are started', async () => {
-      const config = getConfig()
-      Object.assign(config.services.first.env, {
-        CRASH_AFTER_STARTED: 1,
-        CRASH_DELAY: 1000,
-      })
-      Object.assign(config.services.second.env, {
-        START_DELAY: 500,
-        STOP_DELAY: 500,
-      })
-      proc = new CompositeProcess(config)
+      const script = getScript(`
+        config.services.first.env = { CRASH_AFTER_STARTED: 1, CRASH_DELAY: 1000 };
+        config.services.second.env = { START_DELAY: 500, STOP_DELAY: 500 };
+      `)
+      proc = new CompositeProcess(script)
       await proc.ended
       expect(proc.flushOutput()).toMatchInlineSnapshot(`
         Array [
@@ -166,17 +149,18 @@ describe('crash', () => {
     })
   })
   it('crashes when given invalid command', async () => {
-    const config = getConfig()
-    config.services.second.command = 'this_command_does_not_exist'
-    Object.assign(config.services.first.env, {
-      START_DELAY: 5000,
-    })
-    proc = new CompositeProcess(config)
+    const script = getScript(`
+      config.services.second.dependencies = ['first']
+      config.services.second.command = 'this_command_does_not_exist'
+    `)
+    proc = new CompositeProcess(script)
     await proc.ended
     expect(proc.flushOutput()).toMatchInlineSnapshot(`
       Array [
         "Starting composite service...",
         "Starting service 'first'...",
+        "first  | Started 🚀",
+        "Started service 'first'",
         "Starting service 'second'...",
         "Error spawning process for service 'second':",
         "Error: spawn this_command_does_not_exist ENOENT",
@@ -192,18 +176,11 @@ describe('crash', () => {
     `)
   })
   it('crashes when `ready` throws error', async () => {
-    const config = getConfig()
-    config.services.first.ready = () => {
-      ;(global as any).foo.bar()
-    }
-    Object.assign(config.services.first.env, {
-      START_DELAY: 5000,
-    })
-    Object.assign(config.services.second.env, {
-      START_DELAY: 5000,
-      STOP_DELAY: 500,
-    })
-    proc = new CompositeProcess(config)
+    const script = getScript(`
+      config.services.second.dependencies = ['first']
+      config.services.second.ready = () => global.foo.bar()
+    `)
+    proc = new CompositeProcess(script)
     await proc.ended
     const output = proc.flushOutput()
 
@@ -221,19 +198,21 @@ describe('crash', () => {
       Array [
         "Starting composite service...",
         "Starting service 'first'...",
+        "first  | Started 🚀",
+        "Started service 'first'",
         "Starting service 'second'...",
-        "Error waiting for service 'first' to be ready:",
+        "Error waiting for service 'second' to be ready:",
         "TypeError: Cannot read property 'bar' of undefined",
         "--- stack trace ---",
         "Stopping composite service...",
-        "Stopping service 'first'...",
         "Stopping service 'second'...",
-        "first  | ",
-        "first  | ",
-        "Stopped service 'first'",
         "second | ",
         "second | ",
         "Stopped service 'second'",
+        "Stopping service 'first'...",
+        "first  | ",
+        "first  | ",
+        "Stopped service 'first'",
         "Stopped composite service",
         "",
         "",

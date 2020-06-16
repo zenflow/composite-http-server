@@ -5,9 +5,9 @@ module.exports = {
       // redirect prod build to nowhere
       config.output.file = `${__dirname}/dist/delete_me/file.js`
     } else {
-      // config.input can be 'src/http-proxy.ts' or 'src/index.js' **as per package build scripts**
-      if (config.input === 'src/http-proxy.ts') {
-        config.output.file = `${__dirname}/dist/http-proxy.js`
+      // config.input can be 'src/index.js' 'src/http-proxy/server.ts' **as per package build scripts**
+      if (config.input.endsWith('/http-proxy/server.ts')) {
+        config.output.file = `${__dirname}/dist/http-proxy-server.js`
       } else {
         // overwrite tsdx default entry file
         config.output.file = `${__dirname}/dist/index.js`

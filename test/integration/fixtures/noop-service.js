@@ -1,6 +1,6 @@
 const { runService } = require('./common')
 
-// keep process from exiting
-setInterval(() => {}, 1000)
-
-runService()
+runService(() => {
+  // keep process from exiting
+  setInterval(() => {}, 1000)
+})

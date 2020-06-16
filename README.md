@@ -1,6 +1,6 @@
 # composite-service
 
-Helps you to compose multiple services into one
+Helps you to run multiple services as one
 
 Define your composite service in a script like this one...
 
@@ -64,7 +64,7 @@ You can use `configureHttpProxy` to configure it, like this...
 ```js
 // composite.js
 
-const { startCompositeService, oncePortUsed, configureHttpProxy } = require('composite-service')
+const { startCompositeService, oncePortUsed, configureHttpProxyService } = require('composite-service')
 
 const { PORT } = process.env
 const [apiPort, webPort] = [8000, 8001]
@@ -81,7 +81,7 @@ startCompositeService({
       env: { PORT: webPort },
       ready: () => oncePortUsed(webPort),
     },
-    proxy: configureHttpProxy({
+    proxy: configureHttpProxyService({
       dependencies: ['api', 'web'],
       port: PORT,
       proxies: [
@@ -125,24 +125,18 @@ That (running independently on low level) also means that you can easily *de*com
 
 ## Roadmap
 
-- services should be stopped in the reverse of the order they're started in
-- httpProxyService()
+- (service) handleCrash: 'restart-if-started' | 'restart' | 'crash'
 - service config `stdin`, default: process.stdin
-- service `beforeStarting`, `afterStarted`, `beforeStopping`, `afterStopped`
+- (overall) `beforeStarting`, `afterStarted`, `beforeStopping`, `afterStopped`
+- `config.services[].ready` -> `config.services[].started`
 
-- export `assertPortFree` helper
-- `const [apiPort, webPort] = findPorts(2, { exclude: PORT })`
-- `config.service[].tcp: {port, host?}` ??? tcpService(config): ComposedServiceConfig ????
-    1. assigns PORT (and HOST applicable) env vars
-    2. wraps `beforeStarting` to use `assertPortFree`
-    3. sets default `started` to `() => oncePortUsed(port)`
+- `assertPortFree` & `const [apiPort, webPort] = findPorts(2, { exclude: PORT })`
 
 - check for excess config fields
 - use `npm-run-path` package
 
-- `config.service[].handleExit` 'exit', 'restart', or function. Default 'restart'
-
 - tests
+    - simplify fixtures by removing fixtures/common.js & renaming noop-service.js to crash-service.js
     - unit tests for validation
     - test config that fails at runtime (invalid command, specified port in use, etc.)
     - test ctrl+c virtual-SIGINT shutdown
@@ -151,8 +145,9 @@ That (running independently on low level) also means that you can easily *de*com
 
 ## Feature ideas
 
-- `config.service[].startupTimeout` milliseconds to wait for port to open before timeout error (currently it waits basically forever)
-- for *nix: graceful shutdown & `config.service[].forceKillTimeout` option (milliseconds to wait before sending SIGKILL)
+- `config.verbosity: VerbosityEnum`
+- `config.services[].startupTimeout` milliseconds to wait for port to open before timeout error (currently it waits basically forever)
+- `config.services[].forceKillTimeout` option (milliseconds to wait before sending SIGKILL)
 - `nodeClusterService({script: '...', scale: 4})` (uses same node binary that main process was started with)
 - http-proxy: stop accepting new requests, but finish pending requests, when SIGTERM received
 

@@ -1,9 +1,9 @@
-import { validateAndNormalizeConfig } from '../../src/config'
+import { normalizeCompositeServiceConfig } from '../../src/core/normalizeCompositeServiceConfig'
 
-describe('validateAndNormalizeConfig', () => {
+describe('normalizeCompositeServiceConfig', () => {
   it('throws if cyclic dependency is defined', () => {
     expect(() =>
-      validateAndNormalizeConfig({
+      normalizeCompositeServiceConfig({
         services: {
           a: { dependencies: ['b'], command: '' },
           b: { dependencies: ['c'], command: '' },

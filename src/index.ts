@@ -1,7 +1,3 @@
-export {
-  CompositeServiceConfig,
-  ComposedServiceConfig,
-  ReadyConfigContext,
-} from './config'
-export { startCompositeService } from './CompositeService'
+export * from './core'
 export * from './ready-helpers'
+export * from './http-proxy/configure'

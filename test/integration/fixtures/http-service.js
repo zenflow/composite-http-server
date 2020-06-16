@@ -1,17 +1,12 @@
 const { createServer } = require('http')
+const { once } = require('events')
 const { runService } = require('./common')
 
-const server = createServer((_, res) => {
-  res.write(process.env.RESPONSE_TEXT || '')
-  res.end()
+runService(() => {
+  const server = createServer((_, res) => {
+    res.write(process.env.RESPONSE_TEXT || '')
+    res.end()
+  })
+  server.listen(process.env.PORT)
+  return once(server, 'listening')
 })
-
-runService(
-  () =>
-    new Promise((resolve, reject) => {
-      server.listen(process.env.PORT, error => {
-        if (error) reject(error)
-        else resolve()
-      })
-    })
-)
