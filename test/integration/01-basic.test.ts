@@ -35,7 +35,7 @@ describe('basic', () => {
     proc = await new CompositeProcess(getConfig()).start()
     expect(proc.flushOutput()).toMatchInlineSnapshot(`
       Array [
-        "Starting all services...",
+        "Starting composite service...",
         "Starting service 'first'...",
         "Starting service 'second'...",
         "second | Started 🚀",
@@ -45,7 +45,7 @@ describe('basic', () => {
         "Starting service 'third'...",
         "third  | Started 🚀",
         "Started service 'third'",
-        "Started all services",
+        "Started composite service",
       ]
     `)
     await proc.end()
@@ -56,7 +56,7 @@ describe('basic', () => {
       expect(proc.flushOutput()).toMatchInlineSnapshot(`
         Array [
           "Received shutdown signal 'SIGINT'",
-          "Stopping all services...",
+          "Stopping composite service...",
           "Stopping service 'first'...",
           "Stopping service 'second'...",
           "second | ",
@@ -69,7 +69,7 @@ describe('basic', () => {
           "third  | ",
           "third  | ",
           "Stopped service 'third'",
-          "Stopped all services",
+          "Stopped composite service",
           "",
           "",
         ]

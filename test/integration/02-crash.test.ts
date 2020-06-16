@@ -43,18 +43,18 @@ describe('crash', () => {
       await proc.ended
       expect(proc.flushOutput()).toMatchInlineSnapshot(`
         Array [
-          "Starting all services...",
+          "Starting composite service...",
           "Starting service 'first'...",
           "Starting service 'second'...",
           "first  | ",
           "first  | ",
           "Process for service 'first' exited",
-          "Stopping all services...",
+          "Stopping composite service...",
           "Stopping service 'second'...",
           "second | ",
           "second | ",
           "Stopped service 'second'",
-          "Stopped all services",
+          "Stopped composite service",
           "",
           "",
         ]
@@ -70,7 +70,7 @@ describe('crash', () => {
       await proc.ended
       expect(proc.flushOutput()).toMatchInlineSnapshot(`
         Array [
-          "Starting all services...",
+          "Starting composite service...",
           "Starting service 'first'...",
           "Starting service 'second'...",
           "second | Started 🚀",
@@ -78,12 +78,12 @@ describe('crash', () => {
           "first  | ",
           "first  | ",
           "Process for service 'first' exited",
-          "Stopping all services...",
+          "Stopping composite service...",
           "Stopping service 'second'...",
           "second | ",
           "second | ",
           "Stopped service 'second'",
-          "Stopped all services",
+          "Stopped composite service",
           "",
           "",
         ]
@@ -102,7 +102,7 @@ describe('crash', () => {
       await proc.ended
       expect(proc.flushOutput()).toMatchInlineSnapshot(`
         Array [
-          "Starting all services...",
+          "Starting composite service...",
           "Starting service 'first'...",
           "Starting service 'second'...",
           "first  | Started 🚀",
@@ -110,12 +110,12 @@ describe('crash', () => {
           "first  | ",
           "first  | ",
           "Process for service 'first' exited",
-          "Stopping all services...",
+          "Stopping composite service...",
           "Stopping service 'second'...",
           "second | ",
           "second | ",
           "Stopped service 'second'",
-          "Stopped all services",
+          "Stopped composite service",
           "",
           "",
         ]
@@ -135,7 +135,7 @@ describe('crash', () => {
       await proc.ended
       expect(proc.flushOutput()).toMatchInlineSnapshot(`
         Array [
-          "Starting all services...",
+          "Starting composite service...",
           "Starting service 'first'...",
           "Starting service 'second'...",
           "first  | Started 🚀",
@@ -145,11 +145,11 @@ describe('crash', () => {
           "Starting service 'third'...",
           "third  | Started 🚀",
           "Started service 'third'",
-          "Started all services",
+          "Started composite service",
           "first  | ",
           "first  | ",
           "Process for service 'first' exited",
-          "Stopping all services...",
+          "Stopping composite service...",
           "Stopping service 'second'...",
           "second | ",
           "second | ",
@@ -158,7 +158,7 @@ describe('crash', () => {
           "third  | ",
           "third  | ",
           "Stopped service 'third'",
-          "Stopped all services",
+          "Stopped composite service",
           "",
           "",
         ]
@@ -175,17 +175,17 @@ describe('crash', () => {
     await proc.ended
     expect(proc.flushOutput()).toMatchInlineSnapshot(`
       Array [
-        "Starting all services...",
+        "Starting composite service...",
         "Starting service 'first'...",
         "Starting service 'second'...",
         "Error spawning process for service 'second':",
         "Error: spawn this_command_does_not_exist ENOENT",
-        "Stopping all services...",
+        "Stopping composite service...",
         "Stopping service 'first'...",
         "first  | ",
         "first  | ",
         "Stopped service 'first'",
-        "Stopped all services",
+        "Stopped composite service",
         "",
         "",
       ]
@@ -219,13 +219,13 @@ describe('crash', () => {
 
     expect(output).toMatchInlineSnapshot(`
       Array [
-        "Starting all services...",
+        "Starting composite service...",
         "Starting service 'first'...",
         "Starting service 'second'...",
         "Error waiting for service 'first' to be ready:",
         "TypeError: Cannot read property 'bar' of undefined",
         "--- stack trace ---",
-        "Stopping all services...",
+        "Stopping composite service...",
         "Stopping service 'first'...",
         "Stopping service 'second'...",
         "first  | ",
@@ -234,7 +234,7 @@ describe('crash', () => {
         "second | ",
         "second | ",
         "Stopped service 'second'",
-        "Stopped all services",
+        "Stopped composite service",
         "",
         "",
       ]

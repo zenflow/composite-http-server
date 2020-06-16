@@ -24,7 +24,7 @@ export class CompositeProcess {
       outputStream.on('data', line => console.log(line))
     }
     outputStream.on('data', line => this.output.push(line))
-    this.ready = onceOutputLineIs(outputStream, 'Started all services')
+    this.ready = onceOutputLineIs(outputStream, 'Started composite service')
     this.ended = once(outputStream, 'end').then(() => {})
   }
   async start(): Promise<CompositeProcess> {

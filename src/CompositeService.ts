@@ -62,10 +62,10 @@ class CompositeService {
       )
     ).pipe(process.stdout)
 
-    console.log('Starting all services...')
+    console.log('Starting composite service...')
     Promise.all(
       this.services.map(service => this.startService(service))
-    ).then(() => console.log('Started all services'))
+    ).then(() => console.log('Started composite service'))
   }
 
   private async startService(service: ComposedService) {
@@ -82,9 +82,9 @@ class CompositeService {
     if (!this.stopping) {
       this.stopping = true
       console.log(message)
-      console.log('Stopping all services...')
+      console.log('Stopping composite service...')
       Promise.all(this.services.map(service => this.stopService(service)))
-        .then(() => console.log('Stopped all services'))
+        .then(() => console.log('Stopped composite service'))
         // Wait one tick for output to flush
         .then(() => process.exit(1))
     }

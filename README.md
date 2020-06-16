@@ -38,7 +38,7 @@ Run it with a defined `PORT`...
 
 ```
 $ PORT=3000 && node composite.js
-Starting all services...
+Starting composite service...
 Starting service 'api'...
 Starting service 'web'...
 api   | Started 🚀
@@ -48,9 +48,10 @@ Started service 'web'
 Starting service 'proxy'...
 proxy | Started 🚀
 Started service 'proxy'
-Started all services
+Started composite service
 ```
 
+TODO: Next statement not necessarily true
 You now have an http server running on the defined `PORT` which handles requests by proxying them to either of the other two internal/composed servers:
 - all requests with URL under `/api` go to "api"
 - all other requests with URL under `/` go to "web"
@@ -63,7 +64,7 @@ You can use `configureHttpProxy` to configure it, like this...
 ```js
 // composite.js
 
-const { findPorts, startCompositeService, oncePortUsed, configureHttpProxy } = require('composite-service')
+const { startCompositeService, oncePortUsed, configureHttpProxy } = require('composite-service')
 
 const { PORT } = process.env
 const [apiPort, webPort] = [8000, 8001]
