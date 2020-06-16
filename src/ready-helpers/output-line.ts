@@ -1,7 +1,7 @@
-import mergeStream from 'merge-stream'
+import { Readable } from 'stream'
 
 export function onceOutputLine(
-  output: ReturnType<typeof mergeStream>,
+  output: Readable,
   test: (line: string) => boolean
 ): Promise<void> {
   return new Promise(resolve => {
@@ -11,16 +11,10 @@ export function onceOutputLine(
   })
 }
 
-export function onceOutputLineIs(
-  output: ReturnType<typeof mergeStream>,
-  value: string
-): Promise<void> {
+export function onceOutputLineIs(output: Readable, value: string) {
   return onceOutputLine(output, line => line === value)
 }
 
-export function onceOutputLineIncludes(
-  output: ReturnType<typeof mergeStream>,
-  value: string
-): Promise<void> {
+export function onceOutputLineIncludes(output: Readable, value: string) {
   return onceOutputLine(output, line => line.includes(value))
 }

@@ -54,7 +54,7 @@ export function normalizeCompositeServiceConfig(
             return [key, String(value)]
           })
       )
-      const ready = config.ready || (() => Promise.resolve())
+      const ready = config.ready
       __assert(typeof ready === 'function', `\`ready\` is not a function`)
       return [id, { dependencies, command, env, ready }]
     })

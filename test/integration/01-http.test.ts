@@ -3,7 +3,7 @@ import { fetchText } from './helpers/fetchText'
 
 const getScript = () => {
   return `
-    const { startCompositeService, onceOutputLineIs, oncePortUsed, configureHttpProxyService } = require('.');
+    const { onceOutputLineIs, oncePortUsed, configureHttpProxyService, startCompositeService } = require('.');
     const command = 'node test/integration/fixtures/http-service.js';
     const config = {
       services: {

@@ -1,5 +1,5 @@
+import { PassThrough } from 'stream'
 import { Options as HttpProxyOptions } from 'http-proxy-middleware'
-import mergeStream from 'merge-stream'
 
 export { HttpProxyOptions }
 
@@ -69,11 +69,11 @@ export interface ComposedServiceConfig {
    * If the service serves over a tcp port, you can use the `oncePortUsed` helper here.
    * Defaults to `() => Promise.resolve()`
    */
-  ready?: (ctx: ReadyConfigContext) => Promise<any>
+  ready: (ctx: ReadyConfigContext) => Promise<any>
 }
 
 export interface ReadyConfigContext {
-  output: ReturnType<typeof mergeStream>
+  output: PassThrough
 }
 
 export interface NormalizedCompositeServiceConfig {

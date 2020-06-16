@@ -2,12 +2,13 @@ import { normalizeCompositeServiceConfig } from '../../src/core/normalizeComposi
 
 describe('normalizeCompositeServiceConfig', () => {
   it('throws if cyclic dependency is defined', () => {
+    const dummyService = { command: '', ready: async () => {} }
     expect(() =>
       normalizeCompositeServiceConfig({
         services: {
-          a: { dependencies: ['b'], command: '' },
-          b: { dependencies: ['c'], command: '' },
-          c: { dependencies: ['a'], command: '' },
+          a: { ...dummyService, dependencies: ['b'] },
+          b: { ...dummyService, dependencies: ['c'] },
+          c: { ...dummyService, dependencies: ['a'] },
         },
       })
     ).toThrow(

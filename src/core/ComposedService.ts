@@ -8,11 +8,11 @@ import { InternalProcess } from './InternalProcess'
 export class ComposedService {
   readonly id: string
   readonly config: NormalizedComposedServiceConfig
-  readonly output = new PassThrough()
+  readonly output = new PassThrough({ objectMode: true })
   private readonly die: (message: string) => Promise<never>
   private proc: InternalProcess | undefined
-  private startPromise: Promise<void> | undefined
-  private stopPromise: Promise<void> | undefined
+  private startResult: Promise<void> | undefined
+  private stopResult: Promise<void> | undefined
   constructor(
     id: string,
     config: NormalizedComposedServiceConfig,
@@ -23,43 +23,62 @@ export class ComposedService {
     this.die = die
   }
   start() {
-    if (!this.startPromise) {
+    if (!this.startResult) {
       console.log(`Starting service '${this.id}'...`)
-      this.proc = new InternalProcess(this.config.command, this.config.env)
-      this.proc.output.pipe(this.output)
-      this.proc.ended.then(() =>
-        this.die(`Process for service '${this.id}' exited`)
-      )
-      const ctx: ReadyConfigContext = { output: this.proc.output }
-      this.startPromise = Promise.all([
-        promiseTry(() => this.config.ready(ctx)).catch(error => {
-          const prefix = `Error waiting for service '${this.id}' to be ready`
-          return this.die(`${prefix}:\n${maybeErrorText(error)}`)
-        }),
-        this.proc.started.catch(error => {
-          this.proc!.output.unpipe(this.output)
-          this.output.end()
-          const prefix = `Error spawning process for service '${this.id}'`
-          return this.die(`${prefix}:\n${error}`)
-        }),
-      ]).then(() => {
+      this.startResult = this._start().then(() => {
         console.log(`Started service '${this.id}'`)
       })
     }
-    return this.startPromise
+    return this.startResult
+  }
+  private async _start() {
+    const proc = new InternalProcess(this.config.command, this.config.env)
+    this.proc = proc
+    const onProcReady = (): void => {
+      proc.ended.then(() => {
+        if (!this.stopResult) {
+          console.log(`\
+Process for service '${this.id}' exited
+Restarting service '${this.id}'...`)
+          this._start().then(() => {
+            console.log(`Restarted service '${this.id}'`)
+          })
+        }
+      })
+    }
+    proc.output.pipe(this.output, { end: false })
+    const startedPromise = proc.started.catch(error =>
+      Promise.reject(`Error spawning process: ${error.message}`)
+    )
+    const readyPromise = promiseTry(() => {
+      const ctx: ReadyConfigContext = { output: proc.output }
+      return this.config.ready(ctx)
+    }).catch(error =>
+      Promise.reject(`Error waiting to be ready: ${maybeErrorText(error)}`)
+    )
+    return Promise.race([
+      Promise.all([startedPromise, readyPromise]),
+      startedPromise
+        .then(() => proc.ended)
+        .then(() => Promise.reject('Process exited without becoming ready')),
+    ])
+      .catch(error => this.die(`Error starting service '${this.id}': ${error}`))
+      .then(() => {
+        onProcReady()
+      })
   }
   stop() {
-    if (!this.stopPromise) {
+    if (!this.stopResult) {
       if (!this.proc || this.proc.isEnded) {
-        this.stopPromise = Promise.resolve()
+        this.stopResult = Promise.resolve()
       } else {
         console.log(`Stopping service '${this.id}'...`)
-        this.stopPromise = this.proc.end().then(() => {
+        this.stopResult = this.proc.end().then(() => {
           console.log(`Stopped service '${this.id}'`)
         })
       }
     }
-    return this.stopPromise
+    return this.stopResult
   }
 }
 
