@@ -69,11 +69,10 @@ class CompositeService {
   }
 
   private async startService(service: ComposedService) {
-    await Promise.all(
-      service.config.dependencies.map(id =>
-        this.startService(this.serviceMap.get(id)!)
-      )
+    const toStartFirst: ComposedService[] = service.config.dependencies.map(
+      id => this.serviceMap.get(id)!
     )
+    await Promise.all(toStartFirst.map(service => this.startService(service)))
     if (this.stopping) return
     await service.start()
   }
@@ -93,11 +92,10 @@ class CompositeService {
   }
 
   private async stopService(service: ComposedService) {
-    await Promise.all(
-      service.config.dependencies.map(id =>
-        this.stopService(this.serviceMap.get(id)!)
-      )
+    const toStopFirst: ComposedService[] = this.services.filter(({ config }) =>
+      config.dependencies.includes(service.id)
     )
+    await Promise.all(toStopFirst.map(service => this.stopService(service)))
     await service.stop()
   }
 }
