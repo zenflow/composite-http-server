@@ -2,88 +2,159 @@
 
 Helps you to run multiple services as one
 
-Define your composite service in a script like this one...
+### Basic usage
+
+Suppose, for example, you have an API service and another website service which makes calls to the API.
+
+The script to run them together, as if they were a single program, might look like this:
 
 ```js
-// composite.js
+const { startCompositeService } = require('composite-service')
 
-const { startCompositeService, oncePortUsed } = require('composite-service')
-
-const { PORT } = process.env
-const [apiPort, webPort] = [8000, 8001]
+const apiPort = 8000
 
 startCompositeService({
   services: {
     api: {
       command: 'node api/server.js',
-      env: { PORT: apiPort },
-      ready: () => oncePortUsed(apiPort),
+      env: {
+        PORT: apiPort,
+      },
     },
     web: {
       command: 'node web/server.js',
-      env: { PORT: webPort },
-      ready: () => oncePortUsed(webPort),
-    },
-    proxy: {
-      dependencies: ['api', 'web'],
-      command: 'node proxy.js',
-      env: { PORT, API_PORT: apiPort, WEB_PORT: webPort },
-      ready: () => oncePortUsed(PORT),
+      env: {
+        PORT: process.env.PORT,
+        API_ENDPOINT: `http://localhost:${apiPort}`,
+      },
     },
   },
 })
 ```
 
-Run it with a defined `PORT`...
+The above script will:
+1. Start each composed service by spawning a process with the given `command` and `env` (environment variables)
+2. Merge the stdout & stderr of every composed service and pipe it to stdout, each line prepended with the service name
+3. Restart composed services when they "crash" (i.e. exit without being told to exit)
+4. Shut down each composed service when it is itself told to shut down (with ctrl+c, SIGINT, or SIGTERM)
 
-```
-$ PORT=3000 && node composite.js
-Starting composite service...
-Starting service 'api'...
-Starting service 'web'...
-api   | Started 🚀
-web   | Started 🚀
-Started service 'api'
-Started service 'web'
-Starting service 'proxy'...
-proxy | Started 🚀
-Started service 'proxy'
-Started composite service
-```
+The example above only demonstrates composing nodejs http servers,
+but a composed service can be any program that fits this description:
+1. Runs in the terminal (i.e. in the foreground, not daemonized and in the background)
+2. Should run until receiving a shutdown (`SIGINT` or `SIGTERM`) signal. Should not exit by itself, as that would be considered a crash.
 
-TODO: Next statement not necessarily true
-You now have an http server running on the defined `PORT` which handles requests by proxying them to either of the other two internal/composed servers:
-- all requests with URL under `/api` go to "api"
-- all other requests with URL under `/` go to "web"
+The composite service shares the above characteristics.
+It is a terminal program and shouldn't exit until receiving a shutdown signal.
+*However*, if any fatal errors occur, the composite service will shut down any running services and exit with exit code `1`.
 
-Now try pressing ctrl+C on your keyboard... (TODO)
+### Graceful startup
 
-Now suppose you want to use the included http proxy server instead of writing (and re-writing) your own.
-You can use `configureHttpProxy` to configure it, like this...
+Building on the previous example,
+suppose we want to start `web` only once `api` has started up and is ready to handle requests.
+This way:
+1. `web` does not appear to be ready before it's really ready to handle requests (recall that `web` makes calls to `api`)
+2. `web` can safely make calls to `api` during startup
+
+You can use the `ready` & `dependencies` service configs to accomplish this.
+
+Each service is started only once all services listed in its `dependencies` are
+started and "ready" according to their respective `ready` configs.
+
+The `ready` config is a function that takes a `ReadyConfigContext` object as its argument
+and returns a promise that resolves once the service is ready.
+Its default is `() => Promise.resolve()`, which means the service is considered ready immediately.
+
+The `ReadyConfigContext` object has the following properties:
+- `output`: [readable stream](https://nodejs.org/api/stream.html#stream_class_stream_readable) of lines (as strings) from stdout & stderr
+
+This package includes several helper functions for the `ready` config:
+- `oncePortUsed(port: number | string, host = 'localhost'): Promise<void>`
+- `onceOutputLineIs(output: stream.Readable, value: string): Promise<void>`
+- `onceOutputLineIncludes(output: stream.Readable, value: string): Promise<void>`
+- `onceOutputLine(output: Readable, test: (line: string) => boolean): Promise<void>`
+- `onceTimeout(milliseconds: number): Promise<void>`
+
+**Example:**
+
+The following script will only start `web` once `api` outputs (to stdout or stderr) a line that includes "Listening on port ".
 
 ```js
-// composite.js
+const { startCompositeService, onceOutputLineIncludes } = require('composite-service')
 
-const { startCompositeService, oncePortUsed, configureHttpProxyService } = require('composite-service')
+const apiPort = 8000
 
-const { PORT } = process.env
+startCompositeService({
+  services: {
+    api: {
+      command: 'node api/server.js',
+      env: {
+        PORT: apiPort,
+      },
+      ready: ctx => onceOutputLineIncludes(ctx.output, 'Listening on port '),
+    },
+    web: {
+      dependencies: ['api'],
+      command: 'node web/server.js',
+      env: {
+        PORT: process.env.PORT,
+        API_ENDPOINT: `http://localhost:${apiPort}`,
+      },
+    },
+  },
+})
+```
+
+### HTTP proxy service
+
+If you want to expose some composed http services through a single http service (on a single port)
+which proxies requests to the appropriate composed service depending on the URL,
+you can use the included HTTP proxy service instead of writing (and re-writing) your own.
+
+The HTTP proxy service can be configured with the `configureHttpProxyService` function which
+takes the following parameters and returns a service configuration object:
+TODO
+- `dependencies`: Used as `dependencies` in service configuration object (defaults to `[]`)
+- `host`: Host to listen on (defaults to `"0.0.0.0"`)
+- `port`: Port to listen on
+- `proxies`: Array of `HttpProxyConfig` objects,
+each of which has a `context` property,
+and any number of http-proxy-middleware options
+
+**Example:**
+
+The following composite service includes an HTTP proxy service which proxies
+all requests with URL under `/api` to the `api` service
+and all other requests to the `web` service:
+
+```js
+const {
+  startCompositeService,
+  oncePortUsed,
+  configureHttpProxyService,
+} = require('composite-service')
+
 const [apiPort, webPort] = [8000, 8001]
 
 startCompositeService({
   services: {
     api: {
       command: 'node api/server.js',
-      env: { PORT: apiPort },
+      env: {
+        PORT: apiPort,
+      },
       ready: () => oncePortUsed(apiPort),
     },
     web: {
       command: 'node web/server.js',
-      env: { PORT: webPort },
+      env: {
+        PORT: webPort,
+        API_ENDPOINT: `http://localhost:${apiPort}`,
+      },
       ready: () => oncePortUsed(webPort),
     },
     proxy: configureHttpProxyService({
       dependencies: ['api', 'web'],
-      port: PORT,
+      port: process.env.PORT,
       proxies: [
         { context: '/api', target: `http://localhost:${apiPort}` },
         { context: '/', target: `http://localhost:${webPort}` },
@@ -92,15 +163,6 @@ startCompositeService({
   },
 })
 ```
-
-The examples only show composing nodejs http servers, but a service can be any program that fits this description:
-1. Runs in the terminal (i.e. in the foreground, not daemonized and in the background)
-2. Should run until receiving a shutdown (`SIGINT` or `SIGTERM`) signal. Should not exit by itself, as that would be considered a crash.
-
-The composite service shares the above characteristics.
-It is a terminal program and shouldn't exit until receiving a shutdown signal.
-*However*, if any fatal errors occur, the composite service will stop any running services and exit with exit code `1`.
-Fatal errors can be: ... TODO
 
 ## Motivation
 
@@ -116,48 +178,56 @@ Advantages of running as a single service:
 3. with some PaaS providers (e.g. Heroku, render) saves the cost of hosting additional "apps" or "services"
 4. fewer steps (i.e. one step) to start the entire system (locally or in CI) for integration testing (manual or automated), and sometimes even for local development
 
-Another possible use case is grouping a bunch of "microservices" into one, to gain the same advantages listed above, as well as most of the advantages of microservices:
+Another possible use case is grouping a set of "microservices" into one, to gain the same advantages listed above, as well as most of the advantages of microservices:
+- Services can be developed independently, in different repositories, by different teams, in different languages
+- One service crashing doesn't interrupt the others, since they still, on a lower level run as independent programs
 
-- Services can be developed independently, to a range of degrees, from simply giving each it's own `package.json`,
-to having many repos, languages, and teams.
-- One service crashing doesn't interrupt the others, since they still, on a lower level run as independent programs.
-That (running independently on low level) also means that you can easily *de*compose your composite service at any time.
+You are not locked in to this approach.
+Your composed services can be easily *de*composed at any time, and deployed separately.
 
 ## Roadmap
 
-- (service) handleCrash: 'restart-if-started' | 'restart' | 'crash'
-- service config `stdin`, default: process.stdin
-- (overall) `beforeStarting`, `afterStarted`, `beforeStopping`, `afterStopped`
-- `config.services[].ready` -> `config.services[].started`
+- finish up TODO in README
+- simplify tests by having only http-service
+- default `config.services[].ready` should be `() => Promise.resolve()`
+- stop all services immediately
+- fix disabled tests
 
+- count restarts
+- restartDelay, default: 1000
+- consider port safety
+- proxy needs NODE_ENV=production?
+- service config `stopWith: 'ctrl+c' | 'SIGINT' | 'SIGTERM' | ...`
+- `verbosity` config
+
+- finish documentation /w "Configuration" section, using tsdoc website if necessary
+- publish v3
+
+- use `npm-run-path` package
 - `assertPortFree` & `const [apiPort, webPort] = findPorts(2, { exclude: PORT })`
 
+- inline TODOs
 - check for excess config fields
-- use `npm-run-path` package
-
 - tests
-    - simplify fixtures by removing fixtures/common.js & renaming noop-service.js to crash-service.js
     - unit tests for validation
-    - test config that fails at runtime (invalid command, specified port in use, etc.)
-    - test ctrl+c virtual-SIGINT shutdown
-
-- generate typedoc site
+    - use ctrl+c to shutdown composite service (for Windows compat)
+- Nodejs issue: no ChildProcess 'started' event
 
 ## Feature ideas
 
-- `config.verbosity: VerbosityEnum`
-- `config.services[].startupTimeout` milliseconds to wait for port to open before timeout error (currently it waits basically forever)
-- `config.services[].forceKillTimeout` option (milliseconds to wait before sending SIGKILL)
-- `nodeClusterService({script: '...', scale: 4})` (uses same node binary that main process was started with)
+- `beforeStarting`, `afterStarted`, `beforeStopping`, `afterStopped` service configs (event handler or "hook" functions)
+- `readyTimeout` service config (milliseconds to wait for service to be "ready" before giving up and erroring)
+- `forceKillTimeout` service config (milliseconds to wait before sending SIGKILL)
+- `configureNodeClusterService({script: 'path/to/script.js', scale: 4})` (uses same node binary that main process was started with)
 - http-proxy: stop accepting new requests, but finish pending requests, when SIGTERM received
 
 ## Changelog
 
 - `v3.0.0`
-    - `ready` & `dependencies` service configs
-    - Support composing services without http proxy
-    - Require explicit propagation of environment variables to composed services *if `env` is defined*
-    - `findPorts` utility
+    - Support composing non-http services (i.e. no http proxy)
+    - `dependencies`, `ready`, `restartDelay`, & `stopWith` service configs
+    - `verbosity` config
+    - Require explicit propagation of environment variables to composed services
     - Revised names & interfaces
 - `v2.0.0`
     - Run server procs w/o shell & kill server procs normally (w/o tree-kill) (32723c73467522551bc57da8575f57f59d04d11d)
