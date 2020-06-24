@@ -4,6 +4,8 @@ Helps you to run multiple services as one
 
 ### Basic usage
 
+At the heart of this library is the `startCompositeService` function (TODO)
+
 Suppose, for example, you have an API service and another website service which makes calls to the API.
 
 The script to run them together, as if they were a single program, might look like this:
@@ -45,9 +47,16 @@ but a composed service can be any program that fits this description:
 
 The composite service shares the above characteristics.
 It is a terminal program and shouldn't exit until receiving a shutdown signal.
-*However*, if any fatal errors occur, the composite service will shut down any running services and exit with exit code `1`.
+*However*, if any fatal error occurs, the composite service will shut down any running services and exit with exit code `1`.
+TODO: Reference "Fatal errors" section here
 
-### Graceful startup
+Fatal errors:
+    - Invalid configuration
+    - Error spawning process (e.g. EPERM, etc.)
+    - Error in `ready` function
+    - Service crashed before ready (Note that "service crashed after ready" is not fatal, and will be handled by restarting the service.)
+
+### Graceful startup (TODO: and shutdown)
 
 Building on the previous example,
 suppose we want to start `web` only once `api` has started up and is ready to handle requests.
@@ -62,7 +71,7 @@ started and "ready" according to their respective `ready` configs.
 
 The `ready` config is a function that takes a `ReadyConfigContext` object as its argument
 and returns a promise that resolves once the service is ready.
-Its default is `() => Promise.resolve()`, which means the service is considered ready immediately.
+Its default is `() => Promise.resolve()`, which means the service is considered ready as soon as the process is successfully spawned.
 
 The `ReadyConfigContext` object has the following properties:
 - `output`: [readable stream](https://nodejs.org/api/stream.html#stream_class_stream_readable) of lines (as strings) from stdout & stderr
@@ -167,7 +176,8 @@ startCompositeService({
 ## Motivation
 
 Sometimes we want to use some open-source (or just reusable) service in our app or service.
-If we think of that reusable service as a *component* of our overall service,
+If, instead of thinking of that reusable service as an external dependency,
+we rather think of it as a *component* of our overall service,
 then we might want to include it *in* our overall service,
 rather than running it separately, and deploying it separately, as its own independent service.
 
@@ -178,33 +188,31 @@ Advantages of running as a single service:
 3. with some PaaS providers (e.g. Heroku, render) saves the cost of hosting additional "apps" or "services"
 4. fewer steps (i.e. one step) to start the entire system (locally or in CI) for integration testing (manual or automated), and sometimes even for local development
 
-Another possible use case is grouping a set of "microservices" into one, to gain the same advantages listed above, as well as most of the advantages of microservices:
+Another possible use case is grouping a set of microservices into one, to gain the same advantages listed above, as well as most of the advantages of microservices:
 - Services can be developed independently, in different repositories, by different teams, in different languages
 - One service crashing doesn't interrupt the others, since they still, on a lower level run as independent programs
 
 You are not locked in to this approach.
 Your composed services can be easily *de*composed at any time, and deployed separately.
 
+## Related Projects
+
+TODO: quick comparison of this package to each of projects
+
+- https://github.com/Unitech/pm2
+- https://github.com/godaddy/node-cluster-service
+
 ## Roadmap
 
 - finish up TODO in README
 - simplify tests by having only http-service
 - default `config.services[].ready` should be `() => Promise.resolve()`
-- stop all services immediately
 - fix disabled tests
 
 - count restarts
-- restartDelay, default: 1000
 - consider port safety
 - proxy needs NODE_ENV=production?
-- service config `stopWith: 'ctrl+c' | 'SIGINT' | 'SIGTERM' | ...`
-- `verbosity` config
-
-- finish documentation /w "Configuration" section, using tsdoc website if necessary
-- publish v3
-
-- use `npm-run-path` package
-- `assertPortFree` & `const [apiPort, webPort] = findPorts(2, { exclude: PORT })`
+- rename "http proxy service" to "http gateway service"
 
 - inline TODOs
 - check for excess config fields
@@ -213,13 +221,26 @@ Your composed services can be easily *de*composed at any time, and deployed sepa
     - use ctrl+c to shutdown composite service (for Windows compat)
 - Nodejs issue: no ChildProcess 'started' event
 
+- finish documentation /w "Configuration" section, using tsdoc website if necessary
+- publish v3
+
+- service config `restartDelay`, default: 1000
+- service config `stopWith: 'ctrl+c' | 'SIGINT' | 'SIGTERM' | ...`
+- `verbosity` config
+- service config `handleCrash: 'restart-if-started' | 'crash' | 'restart'` defaulting to `'restart-if-started'` which is the current behavior
+- service config `cwd: string`
+- use `npm-run-path` package
+- `assertPortFree` & `const [apiPort, webPort] = findPorts(2, { exclude: PORT })`
+- PR to add composite-service example to https://docs.docker.com/config/containers/multi-service_container/
+
 ## Feature ideas
 
-- `beforeStarting`, `afterStarted`, `beforeStopping`, `afterStopped` service configs (event handler or "hook" functions)
-- `readyTimeout` service config (milliseconds to wait for service to be "ready" before giving up and erroring)
-- `forceKillTimeout` service config (milliseconds to wait before sending SIGKILL)
-- `configureNodeClusterService({script: 'path/to/script.js', scale: 4})` (uses same node binary that main process was started with)
-- http-proxy: stop accepting new requests, but finish pending requests, when SIGTERM received
+- service configs `beforeStarting`, `afterStarted`, `beforeStopping`, `afterStopped`: event handler or "hook" functions
+- service config `readyTimeout`: milliseconds to wait for service to be "ready" before giving up and erroring
+- service config `forceKillTimeout`: milliseconds to wait before sending SIGKILL
+- http proxy service: stop accepting new requests, but finish pending requests, when SIGTERM received
+- http proxy service: support making calls over a Unix domain socket instead of a port
+- service configurator `configureNodeClusterService({script: 'path/to/script.js', scale: 4})` which uses same node binary that main process was started with
 
 ## Changelog
 
