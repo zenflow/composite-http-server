@@ -25,6 +25,8 @@ export interface ComposedServiceConfig {
    * Other composed services that this service depends on, referenced by ID.
    *
    * This service will not be started until all `dependencies` have started, and no `dependencies` will be stopped until this service has stopped.
+   *
+   * See "Graceful startup" section for more info.
    */
   dependencies?: string[]
 
@@ -66,7 +68,9 @@ export interface ComposedServiceConfig {
 
   /**
    * A function that returns a promise that resolves when the service has started up and is ready to do its job.
-   * If the service serves over a tcp port, you can use the `oncePortUsed` helper here.
+   *
+   * See "Graceful startup" section for more info.
+   *
    * Defaults to `() => Promise.resolve()`
    */
   ready: (ctx: ReadyConfigContext) => Promise<any>

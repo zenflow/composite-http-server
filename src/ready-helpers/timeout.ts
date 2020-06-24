@@ -1,3 +1,3 @@
-export function onceTimeout(ms: number) {
-  return new Promise<void>(resolve => setTimeout(resolve, ms))
+export function onceTimeout(milliseconds: number) {
+  return new Promise<void>(resolve => setTimeout(resolve, milliseconds))
 }

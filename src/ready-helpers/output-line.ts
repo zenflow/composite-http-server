@@ -3,8 +3,8 @@ import { Readable } from 'stream'
 export function onceOutputLine(
   output: Readable,
   test: (line: string) => boolean
-): Promise<void> {
-  return new Promise(resolve => {
+) {
+  return new Promise<void>(resolve => {
     output.on('data', line => {
       if (test(line)) resolve()
     })
