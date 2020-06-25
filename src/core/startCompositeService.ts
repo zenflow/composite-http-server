@@ -18,7 +18,7 @@ export function startCompositeService(config: CompositeServiceConfig) {
 }
 
 // TODO: Move all of this into startCompositeService
-export class CompositeService {
+class CompositeService {
   private config: NormalizedCompositeServiceConfig
   private services: ComposedService[]
   private serviceMap: Map<string, ComposedService>

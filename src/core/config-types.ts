@@ -15,10 +15,8 @@ export interface CompositeServiceConfig {
    * Entries with falsy values (i.e. no configuration) are discarded.
    * Must contain configuration for at least one service.
    */
-  services: { [id: string]: ComposedServiceConfig | Nullish }
+  services: { [id: string]: ComposedServiceConfig | null | undefined }
 }
-
-export type Nullish = null | undefined
 
 export interface ComposedServiceConfig {
   /**

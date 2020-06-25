@@ -8,20 +8,26 @@
   "main": "dist/index.js",
   "typings": "dist/index.d.ts",
   "files": [
-    "dist",
-    "!dist/delete_me",
+    "dist/index.js",
+    "dist/index.js.map",
+    "dist/http-proxy-server.js",
+    "dist/http-proxy-server.js.map",
+    "dist/**/*.d.ts",
     "src"
   ],
   "scripts": {
     "_build": "tsdx --target node --format cjs --entry src/index.ts --entry src/http-proxy/server.ts",
-    "build": "yarn _build build && shx rm -rf dist/delete_me",
+    "build": "yarn _build build",
     "build-watch": "yarn _build watch",
     "_test": "tsdx test --runInBand",
     "test": "yarn _test --ci",
     "test-watch": "yarn _test --watch",
     "lint": "tsdx lint",
     "lint-fix": "tsdx lint --fix",
-    "prepublishOnly": "yarn build && yarn test"
+    "extract-api": "api-extractor run --local",
+    "check-api": "api-extractor run",
+    "document-api": "node scripts/document-api.js",
+    "prepublishOnly": "yarn lint && yarn build && yarn test && yarn check-api"
   },
   "dependencies": {
     "connect": "^3.7.0",
@@ -33,13 +39,14 @@
     "tcp-port-used": "^1.0.1"
   },
   "devDependencies": {
+    "@microsoft/api-documenter": "^7.8.16",
+    "@microsoft/api-extractor": "^7.8.12",
     "@types/connect": "^3.4.33",
     "@types/merge-stream": "^1.1.2",
     "@types/serialize-javascript": "^1.5.0",
     "@types/split": "^1.0.0",
     "@types/tcp-port-used": "^1.0.0",
     "isomorphic-unfetch": "^3.0.0",
-    "shx": "^0.3.2",
     "tsdx": "^0.13.2",
     "tslib": "^2.0.0",
     "typescript": "^3.9.3"

@@ -3,7 +3,7 @@ module.exports = {
     // options.env can be 'development' or 'production'
     if (options.env === 'production') {
       // redirect prod build to nowhere
-      config.output.file = `${__dirname}/dist/delete_me/file.js`
+      config.output.file = `${__dirname}/temp/tsdx-prod-build/file.js`
     } else {
       // config.input can be 'src/index.js' 'src/http-proxy/server.ts' **as per package build scripts**
       if (config.input.endsWith('/http-proxy/server.ts')) {

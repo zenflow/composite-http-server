@@ -40,3 +40,8 @@ jobs:
         run: yarn test
         env:
           CI: true
+
+      - name: Check API
+        run: yarn check-api
+        env:
+          CI: true
