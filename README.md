@@ -1,6 +1,6 @@
 # composite-service
 
-Helps you to run multiple services as one
+Helps you run multiple services as one
 
 ### Basic usage
 

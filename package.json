@@ -1,7 +1,7 @@
 {
-  "name": "composite-http-server",
-  "version": "2.0.0",
-  "description": "Helps you to compose a single http server program from multiple constituent server programs (http or not).",
+  "name": "composite-service",
+  "version": "0.1.0",
+  "description": "Helps you run multiple services as one",
   "engines": {
     "node": ">=12"
   },
@@ -58,12 +58,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/zenflow/composite-http-server.git"
+    "url": "git+https://github.com/zenflow/composite-service.git"
   },
   "bugs": {
-    "url": "https://github.com/zenflow/composite-http-server/issues"
+    "url": "https://github.com/zenflow/composite-service/issues"
   },
-  "homepage": "https://github.com/zenflow/composite-http-server#readme",
+  "homepage": "https://github.com/zenflow/composite-service#readme",
   "prettier": {
     "printWidth": 80,
     "semi": false,

@@ -50,7 +50,7 @@ async function processMdFile(file) {
 
   const homeRegexp = /\[Home\]\(.\/index\.md\) &gt; (.*)/
   const homeLineIndex = lines.findIndex(line => homeRegexp.test(line))
-  if (id === 'composite-http-server') {
+  if (id === 'composite-service') {
     lines.splice(homeLineIndex, 1)
   } else {
     lines[homeLineIndex] = lines[homeLineIndex].match(homeRegexp)[1]
